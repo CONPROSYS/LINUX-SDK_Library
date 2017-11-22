@@ -5,15 +5,15 @@ OBJ=libcpsssi.o
 SRC=libcpsssi.c
 CFLAGS= -g -Wall
 INCLUDE= -I$(CPS_SDK_ROOTDIR)/driver/cps-drivers/include
-VERSION =0.9.0
+VERSION =1.0.1
 TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR)}rootfs
 
 all:$(OBJ) ${TARGET}
 
-$(OBJ):	
+$(OBJ):	$(SRC) ../include/libcpsdio.h
 	${CC} ${INCLUDE} ${LD_FLAGS} $(SRC) -c -fPIC -o $(OBJ) -lm
 
-$(TARGET):
+$(TARGET): $(OBJ)
 	${CC} ${INCLUDE} ${LD_FLAGS}  -shared -O2 -Wl,-soname,$(TARGET) -o $(TARGET) $(OBJ) -lm
 
 install:

@@ -31,7 +31,7 @@
 #include <signal.h>
 #include <math.h> //Ver.1.0.2
 #include <malloc.h> // Ver.1.0.2
-#include "cpsaio.h"
+#include "../include/cpsaio.h"
 #include "../include/libcpsaio.h"
 
 typedef struct __contec_cps_aio_int_callback__
@@ -42,6 +42,14 @@ typedef struct __contec_cps_aio_int_callback__
 
 CONTEC_CPS_AIO_INT_CALLBACK_LIST contec_cps_aio_cb_list[CPS_DEVICE_MAX_NUM];
 
+/**
+	@~English
+	@brief callback process function.(The running process is called to receive user's signal.)
+	@param signo : signal number
+	@~Japanese
+	@param signo : シグナルナンバー
+	@brief コールバック内部関数　（ユーザシグナル受信で動作）
+**/
 void _contec_cpsaio_signal_proc( int signo )
 {
 	int cnt;
@@ -60,7 +68,20 @@ void _contec_cpsaio_signal_proc( int signo )
 		}
 	}
 }
-
+/**
+	@~English
+	@brief set exchange function.
+	@param Id : Device ID
+	@param isOutput : "Analog Input" or "Analog Output" Flag
+	@param isMulti : Get data type "Single" or "Multi" Channel.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief AI or AOのデータを単数チャネルで取得するか　複数チャネル分取得するかを設定する関数.
+	@param Id : デバイスID
+	@param isOutput : "アナログ入力"か"アナログ出力"か
+	@param isMulti : "Single"チャネルか "Multi"チャネルか
+	@return 成功:  AIO_ERR_SUCCESS
+**/
 unsigned long _contec_cpsaio_set_exchange( short Id, unsigned char isOutput, unsigned char isMulti )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -79,6 +100,19 @@ unsigned long _contec_cpsaio_set_exchange( short Id, unsigned char isOutput, uns
 
 }
 
+/**
+	@~English
+	@brief AIO Library Initialize.
+	@param DeviceName : Device node name ( cpsaioX )
+	@param Id : Device Access Id
+	@return Success: AIO_ERR_SUCCESS, Failed: otherwise AIO_ERR_SUCCESS
+	@~Japanese
+	@brief 初期化関数.
+	@param DeviceName : デバイスノード名  ( cpsaioX )
+	@param Id : デバイスID
+	@return 成功: AIO_ERR_SUCCESS, 失敗: AIO_ERR_SUCCESS 以外
+
+**/
 unsigned long ContecCpsAioInit( char *DeviceName, short *Id )
 {
 	// open
@@ -110,6 +144,16 @@ unsigned long ContecCpsAioInit( char *DeviceName, short *Id )
 
 }
 
+/**
+	@~English
+	@brief AIO Library Exit.
+	@param Id : Device ID
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief 終了関数.
+	@param Id : デバイスID
+	@return 成功:  AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioExit( short Id )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -121,12 +165,39 @@ unsigned long ContecCpsAioExit( short Id )
 	return AIO_ERR_SUCCESS;
 
 }
+
+/**
+	@~English
+	@brief AIO Library output from ErrorNumber to ErrorString.
+	@param code : Error Code
+	@param Str : Error String
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief エラー文字列出力関数（未実装）
+	@param code : エラーコード
+	@param Str : エラー文字列
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetErrorStrings( unsigned long code, char *Str )
 {
 
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library query Device.
+	@param Index : Device ID
+	@param DeviceName : Device Node Name ( cpsaioX )
+	@param Device : Device Name ( CPS-AI-1608LI , etc )
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief クエリデバイス関数（未実装）
+	@param Index : デバイスID
+	@param DeviceName : デバイスノード名 ( cpsaioX )
+	@param Device : デバイス型式名 (  CPS-AIO-0808Lなど )
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioQueryDeviceName( short Index, char *DeviceName, char *Device )
 {
 
@@ -134,8 +205,19 @@ unsigned long ContecCpsAioQueryDeviceName( short Index, char *DeviceName, char *
 	return AIO_ERR_SUCCESS;
 }
 
-/*** Ai/Ao Get Resolution function ***/
-
+//---- Ai/Ao Get Resolution function ------------------
+/**
+	@~English
+	@brief DIO Library get analog input resolution.
+	@param Id : Device ID
+	@param AiResolution : Resolution of AnalogInput.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力の分解能を取得します
+	@param Id : デバイスID
+	@param AiResolution : アナログ入力の分解能
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAiResolution( short Id, unsigned short *AiResolution )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -149,6 +231,18 @@ unsigned long ContecCpsAioGetAiResolution( short Id, unsigned short *AiResolutio
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library get analog output resolution.
+	@param Id : Device ID
+	@param AoResolution : Resolution of Analog Output.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力の分解能を取得します
+	@param Id : デバイスID
+	@param AoResolution : アナログ出力の分解能
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAoResolution( short Id, unsigned short *AoResolution )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -162,8 +256,19 @@ unsigned long ContecCpsAioGetAoResolution( short Id, unsigned short *AoResolutio
 	return AIO_ERR_SUCCESS;
 }
 
-/*** Ai Channel function ***/
-
+//---- Ai Channel function ----------------------------
+/**
+	@~English
+	@brief AIO Library get maximum analog input channels.
+	@param Id : Device ID
+	@param AiMaxChannels : analog input max channel number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスの最大の入力チャネル数を取得します
+	@param Id : デバイスID
+	@param AiMaxChannels :アナログ入力の最大チャネル数
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAiMaxChannels( short Id, short *AiMaxChannels ){
 	struct cpsaio_ioctl_arg	arg;
 
@@ -174,6 +279,18 @@ unsigned long ContecCpsAioGetAiMaxChannels( short Id, short *AiMaxChannels ){
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library set analog input channel.
+	@param Id : Device ID
+	@param AiChannels : analog input channel number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスを計測する入力チャネルを設定します
+	@param Id : デバイスID
+	@param AiChannels :　アナログ入力のチャネル番号
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSetAiChannels( short Id, short AiChannels )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -187,6 +304,18 @@ unsigned long ContecCpsAioSetAiChannels( short Id, short AiChannels )
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library get analog input channel.
+	@param Id : Device ID
+	@param AiChannels : analog input channel number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスを計測する入力チャネルを取得します
+	@param Id : デバイスID
+	@param AiChannels :　アナログ入力のチャネル番号
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAiChannels( short Id, short *AiChannels )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -199,7 +328,18 @@ unsigned long ContecCpsAioGetAiChannels( short Id, short *AiChannels )
 	return AIO_ERR_SUCCESS;
 }
 
-
+/**
+	@~English
+	@brief AIO Library set analog input sampling clock.( set time micro second order.)
+	@param Id : Device ID
+	@param AiSamplingClock : analog input channel number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力のサンプリング時間を設定します。単位は usecです。
+	@param Id : デバイスID
+	@param AiSamplingClock :　サンプリング時間
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSetAiSamplingClock( short Id, double AiSamplingClock )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -212,6 +352,18 @@ unsigned long ContecCpsAioSetAiSamplingClock( short Id, double AiSamplingClock )
 
 }
 
+/**
+	@~English
+	@brief AIO Library get analog input sampling clock.( set time micro second order.)
+	@param Id : Device ID
+	@param AiSamplingClock : analog input sampling clock.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力のサンプリング時間を取得します。単位は usecです。
+	@param Id : デバイスID
+	@param AiSamplingClock :　サンプリング時間
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAiSamplingClock( short Id, double *AiSamplingClock )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -225,6 +377,18 @@ unsigned long ContecCpsAioGetAiSamplingClock( short Id, double *AiSamplingClock 
 
 }
 
+/**
+	@~English
+	@brief AIO Library set analog input sampling number.
+	@param Id : Device ID
+	@param AiSamplingTimes : analog input sample number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief 入力サンプリング数の設定を行います。
+	@param Id : デバイスID
+	@param AiSamplingTimes :　入力サンプリング数
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSetAiEventSamplingTimes( short Id, unsigned long AiSamplingTimes )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -236,7 +400,18 @@ unsigned long ContecCpsAioSetAiEventSamplingTimes( short Id, unsigned long AiSam
 	return AIO_ERR_SUCCESS;
 
 }
-
+/**
+	@~English
+	@brief AIO Library get analog input sampling number.
+	@param Id : Device ID
+	@param AiSamplingTimes : analog input sample number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief サンプリング数の取得を行います。
+	@param Id : デバイスID
+	@param AiSamplingTimes :　サンプリング数
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAiEventSamplingTimes( short Id, unsigned long *AiSamplingTimes )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -249,7 +424,17 @@ unsigned long ContecCpsAioGetAiEventSamplingTimes( short Id, unsigned long *AiSa
 
 }
 
-/**** Running Functions ****/
+//--- Running Functions ------------------------
+/**
+	@~English
+	@brief AIO Library start analog input sampling.
+	@param Id : Device ID
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力サンプリングの開始。
+	@param Id : デバイスID
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioStartAi( short Id )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -278,12 +463,34 @@ unsigned long ContecCpsAioStartAi( short Id )
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library stop analog input sampling.
+	@param Id : Device ID
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力サンプリングの停止。
+	@param Id : デバイスID
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioStopAi( short Id )
 {
 	ioctl( Id, IOCTL_CPSAIO_STOP_AI, 0 );
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library get analog input status.
+	@param Id : Device ID
+	@param AiStatus : status of analog input
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力デバイスの状態の取得。
+	@param Id : デバイスID
+	@param AiStatus : アナログ入力のステータス
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAiStatus( short Id, long *AiStatus )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -295,6 +502,20 @@ unsigned long ContecCpsAioGetAiStatus( short Id, long *AiStatus )
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library get analog input sampling data.
+	@param Id : Device ID
+	@param AiSamplingTimes : set the Getting Data length
+	@param AiData : get Data of analog input
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力デバイスのサンプリングデータを取得。(16bit)
+	@param Id : デバイスID
+	@param AiSamplingTimes : サンプリング数
+	@param AiData : アナログ入力データ配列
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAiSamplingData( short Id, short AiSamplingTimes, long AiData[] )
 {
 
@@ -313,7 +534,20 @@ unsigned long ContecCpsAioGetAiSamplingData( short Id, short AiSamplingTimes, lo
 
 	return AIO_ERR_SUCCESS;
 }
-
+/**
+	@~English
+	@brief AIO Library get analog input sampling data.( double type )
+	@param Id : Device ID
+	@param AiSamplingTimes : set the Getting Data length
+	@param AiData : get Data of analog input
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力デバイスのサンプリングデータを取得。(浮動小数点型)
+	@param Id : デバイスID
+	@param AiSamplingTimes : サンプリング数
+	@param AiData : アナログ入力データ配列
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAiSamplingDataEx( short Id, short AiSamplingTimes, double AiData[] )
 {
 
@@ -345,6 +579,20 @@ unsigned long ContecCpsAioGetAiSamplingDataEx( short Id, short AiSamplingTimes, 
 
 }
 
+/**
+	@~English
+	@brief AIO Library get channel of analog input device sampling one data.( unsigned short type )
+	@param Id : Device ID
+	@param AiChannel : set the Data Channel
+	@param AiData : get Data of analog input
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力デバイスの指定したチャネルのサンプリングデータを一回取得。(16bit)
+	@param Id : デバイスID
+	@param AiChannel : チャネル番号
+	@param AiData : アナログ入力データ
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSingleAi( short Id, short AiChannel, long *AiData )
 {
 
@@ -370,7 +618,20 @@ unsigned long ContecCpsAioSingleAi( short Id, short AiChannel, long *AiData )
 
 	return AIO_ERR_SUCCESS;
 }
-
+/**
+	@~English
+	@brief AIO Library get channel of analog input device sampling one data.( double type )
+	@param Id : Device ID
+	@param AiChannel : set the Data Channel
+	@param AiData : get Data of analog input
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力デバイスの指定したチャネルのサンプリングデータを一回取得。(浮動小数点型)
+	@param Id : デバイスID
+	@param AiChannel : チャネル番号
+	@param AiData : アナログ入力データ
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSingleAiEx( short Id, short AiChannel, double *AiData )
 {
 
@@ -398,6 +659,20 @@ unsigned long ContecCpsAioSingleAiEx( short Id, short AiChannel, double *AiData 
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library get multiple channels of analog input device sampling one data.( unsigned short type )
+	@param Id : Device ID
+	@param AiChannels : set the Data Channel
+	@param AiData : get Data array of analog input
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力デバイスの複数チャネルのサンプリングデータを一回取得。(16bit)
+	@param Id : デバイスID
+	@param AiChannels : チャネル数
+	@param AiData : アナログ入力データ配列
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioMultiAi( short Id, short AiChannels, long AiData[] )
 {
 
@@ -422,7 +697,20 @@ unsigned long ContecCpsAioMultiAi( short Id, short AiChannels, long AiData[] )
 
 	return AIO_ERR_SUCCESS;
 }
-
+/**
+	@~English
+	@brief AIO Library get multiple channels of analog input device sampling one data.( double type )
+	@param Id : Device ID
+	@param AiChannels : set the Data Channel
+	@param AiData : get Data array of analog input
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力デバイスの複数チャネルのサンプリングデータを一回取得。(浮動小数点型)
+	@param Id : デバイスID
+	@param AiChannels : チャネル数
+	@param AiData : アナログ入力データ配列
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioMultiAiEx( short Id, short AiChannels, double AiData[] )
 {
 
@@ -456,7 +744,18 @@ unsigned long ContecCpsAioMultiAiEx( short Id, short AiChannels, double AiData[]
 }
 
 /* Ao Channel */
-
+/**
+	@~English
+	@brief AIO Library get maximum analog output channels.
+	@param Id : Device ID
+	@param AoMaxChannels : analog output maximum channel number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスの最大の出力チャネル数を取得します
+	@param Id : デバイスID
+	@param AoMaxChannels :アナログ出力の最大チャネル数
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAoMaxChannels( short Id, short *AoMaxChannels ){
 	struct cpsaio_ioctl_arg	arg;
 
@@ -467,6 +766,18 @@ unsigned long ContecCpsAioGetAoMaxChannels( short Id, short *AoMaxChannels ){
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library set analog output channel.
+	@param Id : Device ID
+	@param AoChannels : analog output channel number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスを計測する出力チャネルを設定します
+	@param Id : デバイスID
+	@param AoChannels :　アナログ出力のチャネル番号
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSetAoChannels( short Id, short AoChannels )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -481,6 +792,18 @@ unsigned long ContecCpsAioSetAoChannels( short Id, short AoChannels )
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library set analog output sampling number.
+	@param Id : Device ID
+	@param AoSamplingTimes : analog output sample number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief 出力サンプリング数の設定を行います。
+	@param Id : デバイスID
+	@param AoSamplingTimes :　出力サンプリング数
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSetAoEventSamplingTimes( short Id, unsigned long AoSamplingTimes )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -494,7 +817,17 @@ unsigned long ContecCpsAioSetAoEventSamplingTimes( short Id, unsigned long AoSam
 }
 
 
-/**** Running Functions ****/
+//----- Running Functions ------
+/**
+	@~English
+	@brief AIO Library start analog output sampling.
+	@param Id : Device ID
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力サンプリングの開始。
+	@param Id : デバイスID
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioStartAo( short Id )
 {
 
@@ -513,12 +846,34 @@ unsigned long ContecCpsAioStartAo( short Id )
 
 }
 
+/**
+	@~English
+	@brief AIO Library stop analog output sampling.
+	@param Id : Device ID
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力サンプリングの停止。
+	@param Id : デバイスID
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioStopAo( short Id )
 {
 	ioctl( Id, IOCTL_CPSAIO_STOP_AO, NULL );
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library get analog output status.
+	@param Id : Device ID
+	@param AoStatus : status of analog output
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力デバイスの状態の取得。
+	@param Id : デバイスID
+	@param AoStatus : アナログ出力のステータス
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAoStatus( short Id, long *AoStatus )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -530,6 +885,18 @@ unsigned long ContecCpsAioGetAoStatus( short Id, long *AoStatus )
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library set analog output sampling clock.( set time micro second order.)
+	@param Id : Device ID
+	@param AoSamplingClock : analog output channel number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力のサンプリング時間を設定します。単位は usecです。
+	@param Id : デバイスID
+	@param AoSamplingClock :　サンプリング時間
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSetAoSamplingClock( short Id, double AoSamplingClock )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -542,6 +909,20 @@ unsigned long ContecCpsAioSetAoSamplingClock( short Id, double AoSamplingClock )
 
 }
 
+/**
+	@~English
+	@brief AIO Library get channel of analog output device sampling one data.( unsigned short type )
+	@param Id : Device ID
+	@param AoChannel : set the Data Channel
+	@param AoData : get Data of analog output
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力デバイスの指定したチャネルのサンプリングデータを一回取得。(16bit)
+	@param Id : デバイスID
+	@param AoChannel : チャネル番号
+	@param AoData : アナログ出力データ
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSingleAo( short Id, short AoChannel, long AoData )
 {
 
@@ -569,6 +950,20 @@ unsigned long ContecCpsAioSingleAo( short Id, short AoChannel, long AoData )
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library get channel of analog output device sampling one data.( double type )
+	@param Id : Device ID
+	@param AoChannel : set the Data Channel
+	@param AoData : get Data of analog output
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力デバイスの指定したチャネルのサンプリングデータを一回取得。(浮動小数点型)
+	@param Id : デバイスID
+	@param AoChannel : チャネル番号
+	@param AoData : アナログ出力データ
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSingleAoEx( short Id, short AoChannel, double AoData )
 {
 
@@ -597,6 +992,20 @@ unsigned long ContecCpsAioSingleAoEx( short Id, short AoChannel, double AoData )
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library get multiple channels of analog input device sampling one data.( unsigned short type )
+	@param Id : Device ID
+	@param AoChannels : set the Data Channel
+	@param AoData : get Data array of analog input
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力デバイスの複数チャネルのサンプリングデータを一回取得。(16bit)
+	@param Id : デバイスID
+	@param AoChannels : チャネル数
+	@param AoData : アナログ出力データ配列
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioMultiAo( short Id, short AoChannels, long AoData[] )
 {
 
@@ -622,6 +1031,20 @@ unsigned long ContecCpsAioMultiAo( short Id, short AoChannels, long AoData[] )
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library get multiple channels of analog output device sampling one data.( double type )
+	@param Id : Device ID
+	@param AoChannels : set the Data Channel
+	@param AoData : get Data array of analog output
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力デバイスの複数チャネルのサンプリングデータを一回取得。(浮動小数点型)
+	@param Id : デバイスID
+	@param AoChannels : チャネル数
+	@param AoData : アナログ出力データ配列
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioMultiAoEx( short Id, short AoChannels, double AoData[] )
 {
 
@@ -655,6 +1078,20 @@ unsigned long ContecCpsAioMultiAoEx( short Id, short AoChannels, double AoData[]
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library set destination and source signals by E Control unit.
+	@param Id : Device ID
+	@param dest : Destination Signal
+	@param src : Source Signal
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief ECUに接続元の信号と接続先の信号を設定する関数。
+	@param Id : デバイスID
+	@param dest : 接続先の信号
+	@param src : 接続元の信号
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSetEcuSignal( short Id, unsigned short dest, unsigned short src )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -666,6 +1103,24 @@ unsigned long ContecCpsAioSetEcuSignal( short Id, unsigned short dest, unsigned 
 }
 
 // 2016-01-20 (1) 
+/**
+	@~English
+	@brief AIO Library set Calibration data by analog input.
+	@param Id : Device ID
+	@param select : select offset or gain
+	@param ch : channel
+	@param range : Range
+	@param data : 16bit data
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力の補正データを設定する関数。
+	@param Id : デバイスID
+	@param select : オフセットかゲインか
+	@param ch : チャネル番号
+	@param range : レンジ
+	@param data : Data( 16bit )
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSetAiCalibrationData( short Id, unsigned char select, unsigned char ch, unsigned char range, unsigned short data )
 {
 	int aisel = 0;
@@ -679,7 +1134,24 @@ unsigned long ContecCpsAioSetAiCalibrationData( short Id, unsigned char select, 
 	return AIO_ERR_SUCCESS;
 
 } 
-
+/**
+	@~English
+	@brief AIO Library get Calibration data by analog input.
+	@param Id : Device ID
+	@param select : select offset or gain
+	@param ch : channel
+	@param range : Range
+	@param data : 16bit data
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力の補正データを取得する関数。
+	@param Id : デバイスID
+	@param select : オフセットかゲインか
+	@param ch : チャネル番号
+	@param range : レンジ
+	@param data : Data( 16bit )
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAiCalibrationData( short Id, unsigned char *select, unsigned char *ch, unsigned char *range, unsigned short *data )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -692,7 +1164,22 @@ unsigned long ContecCpsAioGetAiCalibrationData( short Id, unsigned char *select,
 
 	return AIO_ERR_SUCCESS;
 } 
-
+/**
+	@~English
+	@brief AIO Library write analog input calibration data to ROM.
+	@param Id : Device ID
+	@param ch : channel
+	@param gain : gain value (8bit)
+	@param offset : offset value (8bit)
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力の補正データをROMへ書き込む関数。
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param gain : ゲインの値 (  8bit )
+	@param offset : オフセットの値(  8bit )
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioWriteAiCalibrationData( short Id, unsigned char ch, unsigned char gain, unsigned char offset )
 {
 	int aisel = 0;
@@ -705,6 +1192,22 @@ unsigned long ContecCpsAioWriteAiCalibrationData( short Id, unsigned char ch, un
 
 }
 
+/**
+	@~English
+	@brief AIO Library read analog input calibration data to ROM.
+	@param Id : Device ID
+	@param ch : channel
+	@param gain : gain value (8bit)
+	@param offset : offset value (8bit)
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力の補正データをROMから読み出す関数。
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param gain : ゲインの値 (  8bit )
+	@param offset : オフセットの値(  8bit )
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioReadAiCalibrationData( short Id, unsigned char ch, unsigned char *gain, unsigned char *offset )
 {
 	int aisel = 0;
@@ -719,7 +1222,18 @@ unsigned long ContecCpsAioReadAiCalibrationData( short Id, unsigned char ch, uns
 	return AIO_ERR_SUCCESS;	
 
 }
-
+/**
+	@~English
+	@brief AIO Library　clear analog input calibration data from ROM( or RAM).
+	@param Id : Device ID
+	@param iClear : ROM , RAM Flags
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのROM/RAMからアナログ入力補正データを消去する関数。
+	@param Id : デバイスID
+	@param iClear : ROM もしくは　RAM
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioClearAiCalibrationData( short Id, int iClear )
 {
 
@@ -739,6 +1253,24 @@ unsigned long ContecCpsAioClearAiCalibrationData( short Id, int iClear )
 }
 
 // 2016-01-20 (1) 
+/**
+	@~English
+	@brief AIO Library set Calibration data by analog output.
+	@param Id : Device ID
+	@param select : select offset or gain
+	@param ch : channel
+	@param range : Range
+	@param data : 16bit data
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力の補正データを設定する関数。
+	@param Id : デバイスID
+	@param select : オフセットかゲインか
+	@param ch : チャネル番号
+	@param range : レンジ
+	@param data : Data( 16bit )
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioSetAoCalibrationData( short Id, unsigned char select, unsigned char ch, unsigned char range, unsigned short data )
 {
 	int aisel = 0;
@@ -751,6 +1283,24 @@ unsigned long ContecCpsAioSetAoCalibrationData( short Id, unsigned char select, 
 
 } 
 
+/**
+	@~English
+	@brief AIO Library get Calibration data by analog output.
+	@param Id : Device ID
+	@param select : select offset or gain
+	@param ch : channel
+	@param range : Range
+	@param data : 16bit data
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力の補正データを取得する関数。
+	@param Id : デバイスID
+	@param select : オフセットかゲインか
+	@param ch : チャネル番号
+	@param range : レンジ
+	@param data : Data( 16bit )
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioGetAoCalibrationData( short Id, unsigned char *select, unsigned char *ch, unsigned char *range, unsigned short *data )
 {
 	struct cpsaio_ioctl_arg	arg;
@@ -765,7 +1315,22 @@ unsigned long ContecCpsAioGetAoCalibrationData( short Id, unsigned char *select,
 	return AIO_ERR_SUCCESS;
 } 
 
-
+/**
+	@~English
+	@brief AIO Library write Calibration analog output data to ROM.
+	@param Id : Device ID
+	@param ch : channel
+	@param gain : gain value (8bit)
+	@param offset : offset value (8bit)
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力の補正データをROMへ書き込む関数。
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param gain : ゲインの値 (  8bit )
+	@param offset : オフセットの値(  8bit )
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioWriteAoCalibrationData( short Id, unsigned char ch, unsigned char gain, unsigned char offset )
 {
 	int aisel = 0;
@@ -778,7 +1343,22 @@ unsigned long ContecCpsAioWriteAoCalibrationData( short Id, unsigned char ch, un
 	return AIO_ERR_SUCCESS;	
 
 }
-
+/**
+	@~English
+	@brief AIO Library read analog output calibration data to ROM.
+	@param Id : Device ID
+	@param ch : channel
+	@param gain : gain value (8bit)
+	@param offset : offset value (8bit)
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ出力の補正データをROMから読み出す関数。
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param gain : ゲインの値 (  8bit )
+	@param offset : オフセットの値(  8bit )
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioReadAoCalibrationData( short Id, unsigned char ch, unsigned char *gain, unsigned char *offset )
 {
 	int aisel = 0;
@@ -796,6 +1376,18 @@ unsigned long ContecCpsAioReadAoCalibrationData( short Id, unsigned char ch, uns
 
 }
 
+/**
+	@~English
+	@brief AIO Library　clear analog output calibration data from ROM( or RAM).
+	@param Id : Device ID
+	@param iClear : ROM , RAM Flags
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのROM/RAMからアナログ出力補正データを消去する関数。
+	@param Id : デバイスID
+	@param iClear : ROM もしくは　RAM
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioClearAoCalibrationData( short Id, int iClear )
 {
 	int cnt;
@@ -818,7 +1410,20 @@ unsigned long ContecCpsAioClearAoCalibrationData( short Id, int iClear )
 
 /* Direct Input / Output (Debug) */
 
-
+/**
+	@~English
+	@brief AIO Library the register of address read data.(1byte)
+	@param Id : Device ID
+	@param addr : Address
+	@param value : Values
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのアドレスレジスタを読み出す関数。(1byte)
+	@param Id : デバイスID
+	@param addr : アドレス
+	@param value : 値
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioInp( short Id, unsigned long addr, unsigned char *value )
 {
 	struct cpsaio_direct_arg arg;
@@ -830,6 +1435,20 @@ unsigned long ContecCpsAioInp( short Id, unsigned long addr, unsigned char *valu
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library the register of address read data.(2byte)
+	@param Id : Device ID
+	@param addr : Address
+	@param value : Values
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのアドレスレジスタを読み出す関数。(2byte)
+	@param Id : デバイスID
+	@param addr : アドレス
+	@param value : 値
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioInpW( short Id, unsigned long addr, unsigned short *value )
 {
 	struct cpsaio_direct_arg arg;
@@ -842,6 +1461,20 @@ unsigned long ContecCpsAioInpW( short Id, unsigned long addr, unsigned short *va
 
 }
 
+/**
+	@~English
+	@brief AIO Library the register of address read data.(4byte)
+	@param Id : Device ID
+	@param addr : Address
+	@param value : Values
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのアドレスレジスタを読み出す関数。(4byte)
+	@param Id : デバイスID
+	@param addr : アドレス
+	@param value : 値
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioInpD( short Id, unsigned long addr, unsigned long *value )
 {
 	struct cpsaio_direct_arg arg;
@@ -853,6 +1486,20 @@ unsigned long ContecCpsAioInpD( short Id, unsigned long addr, unsigned long *val
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library the register of address write data.(1byte)
+	@param Id : Device ID
+	@param addr : Address
+	@param value : Values
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのアドレスレジスタへ書き出す関数。(1byte)
+	@param Id : デバイスID
+	@param addr : アドレス
+	@param value : 値
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioOutp( short Id, unsigned long addr, unsigned char value )
 {
 	struct cpsaio_direct_arg arg;
@@ -864,6 +1511,20 @@ unsigned long ContecCpsAioOutp( short Id, unsigned long addr, unsigned char valu
 	return AIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief AIO Library the register of address write data.(2byte)
+	@param Id : Device ID
+	@param addr : Address
+	@param value : Values
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのアドレスレジスタへ書き出す関数。(2byte)
+	@param Id : デバイスID
+	@param addr : アドレス
+	@param value : 値
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioOutpW( short Id, unsigned long addr, unsigned short value )
 {
 	struct cpsaio_direct_arg arg;
@@ -876,6 +1537,20 @@ unsigned long ContecCpsAioOutpW( short Id, unsigned long addr, unsigned short va
 
 }
 
+/**
+	@~English
+	@brief AIO Library the register of address write data.(4byte)
+	@param Id : Device ID
+	@param addr : Address
+	@param value : Values
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのアドレスレジスタへ書き出す関数。(4byte)
+	@param Id : デバイスID
+	@param addr : アドレス
+	@param value : 値
+	@return 成功: AIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsAioOutpD( short Id, unsigned long addr, unsigned long value )
 {
 	struct cpsaio_direct_arg arg;

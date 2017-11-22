@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <math.h>
-#include "cpsssi.h"
+#include "../include/cpsssi.h"
 #include "../include/libcpsssi.h"
 
 typedef struct __contec_cps_ssi_int_callback__
@@ -35,6 +35,14 @@ typedef struct __contec_cps_ssi_int_callback__
 
 CONTEC_CPS_SSI_INT_CALLBACK_LIST contec_cps_ssi_cb_list[CPS_DEVICE_MAX_NUM];
 
+/**
+	@~English
+	@brief callback process function.(The running process is called to receive user's signal.)
+	@param signo : signal number
+	@~Japanese
+	@param signo : シグナルナンバー
+	@brief コールバック内部関数　（ユーザシグナル受信で動作）
+**/
 void _contec_cpsssi_signal_proc( int signo )
 {
 	int cnt;
@@ -54,6 +62,18 @@ void _contec_cpsssi_signal_proc( int signo )
 	}
 }
 
+/**
+	@~English
+	@brief SSI Library Initialize.
+	@param DeviceName : Device node name ( cpsssiX )
+	@param Id : Device Access Id
+	@return Success: SSI_ERR_SUCCESS, Failed: otherwise SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 初期化関数.
+	@param DeviceName : デバイスノード名  ( cpsssiX )
+	@param Id : デバイスID
+	@return 成功: SSI_ERR_SUCCESS, 失敗: SSI_ERR_SUCCESS 以外
+**/
 unsigned long ContecCpsSsiInit( char *DeviceName, short *Id )
 {
 	// open
@@ -69,12 +89,22 @@ unsigned long ContecCpsSsiInit( char *DeviceName, short *Id )
 
 	ioctl( *Id, IOCTL_CPSSSI_INIT, &arg );
 
-	ContecCpsSsiSetSenceRegister( *Id, 2000.0 ); 
+	ContecCpsSsiSetSenseResistor( *Id, 2000.0 ); 
 	
 	return SSI_ERR_SUCCESS;
 
 }
 
+/**
+	@~English
+	@brief SSI Library Exit.
+	@param Id : Device ID
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 終了関数.
+	@param Id : デバイスID
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiExit( short Id )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -86,18 +116,62 @@ unsigned long ContecCpsSsiExit( short Id )
 	return SSI_ERR_SUCCESS;
 
 }
+
+/**
+	@~English
+	@brief SSI Library output from ErrorNumber to ErrorString.
+	@param code : Error Code
+	@param Str : Error String
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief エラー文字列出力関数（未実装）
+	@param code : エラーコード
+	@param Str : エラー文字列
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiGetErrorStrings( unsigned long code, char *Str )
 {
 
 	return SSI_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief SSI Library query Device.
+	@param Id : Device ID
+	@param DeviceName : Device Node Name ( cpsssiX )
+	@param Device : Device Name ( CPS-SSI-4P , etc )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief クエリデバイス関数（未実装）
+	@param Id : デバイスID
+	@param DeviceName : デバイスノード名 ( cpsssiX )
+	@param Device : デバイス型式名 ( CPS-SSI-4Pなど )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiQueryDeviceName( short Id, char *DeviceName, char *Device )
 {
 
 	return SSI_ERR_SUCCESS;
 }
 
+
+/**
+	@~English
+	@brief SSI Library set channel's paramter.
+	@param Id : Device ID
+	@param SsiChannel : Channel Number
+	@param iWire : Wire type ( SSI_CHANNEL_3WIRE or SSI_CHANNEL_4WIRE )
+	@param iJpt : PT Type ( SSI_CHANNEL_JPT or SSI_CHANNEL_PT  )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief チャネル情報設定関数
+	@param Id : デバイスID
+	@param SsiChannel : チャネル番号
+	@param iWire : 三線式か四線式  ( SSI_CHANNEL_3WIRE か SSI_CHANNEL_4WIRE )
+	@param iJpt : PT100か JPT100 ( SSI_CHANNEL_PT か SSI_CHANNEL_JPT )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiSetChannel( short Id, short SsiChannel , unsigned int iWire, unsigned int iJpt )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -127,7 +201,7 @@ unsigned long ContecCpsSsiSetChannel( short Id, short SsiChannel , unsigned int 
 	arg.ch = SsiChannel;
 	arg.val = SSI_4P_CHANNEL_SET_RTD(
 		SSI_4P_CHANNEL_RTD_PT_100,
-		SSI_4P_CHANNEL_RTD_SENCE_POINTER_CH3TOCH2,
+		SSI_4P_CHANNEL_RTD_SENSE_POINTER_CH3TOCH2,
 		isWire,
 		SSI_4P_CHANNEL_RTD_EXCITATION_CURRENT_250UA,
 		isCountry
@@ -138,6 +212,22 @@ unsigned long ContecCpsSsiSetChannel( short Id, short SsiChannel , unsigned int 
 	return SSI_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief SSI Library get channel's parameter.
+	@param Id : Device ID
+	@param SsiChannel : Channel Number
+	@param iWire : Wire type ( SSI_CHANNEL_3WIRE or SSI_CHANNEL_4WIRE )
+	@param iJpt : PT Type ( SSI_CHANNEL_JPT or SSI_CHANNEL_PT  )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief チャネル情報取得関数
+	@param Id : デバイスID
+	@param SsiChannel : チャネル番号
+	@param iWire : 三線式か四線式  ( SSI_CHANNEL_3WIRE か SSI_CHANNEL_4WIRE )
+	@param iJpt : PT100か JPT100 ( SSI_CHANNEL_PT か SSI_CHANNEL_JPT )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiGetChannel( short Id, short SsiChannel , unsigned int *iWire, unsigned int *iJpt )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -177,39 +267,79 @@ unsigned long ContecCpsSsiGetChannel( short Id, short SsiChannel , unsigned int 
 }
 
 
-unsigned long ContecCpsSsiSetSenceRegister( short Id, double sence )
+/**
+	@~English
+	@brief SSI Library set the sense resistor.
+	@param Id : Device ID
+	@param sense : sense resistor value.
+	@warning Default sense resistor 2k Ohm. If you change the sense resistor, you own risk.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief センス抵抗設定関数
+	@param Id : デバイスID
+	@param sense : センス抵抗値
+	@warning センス抵抗の標準値は 2KΩです。もしセンス抵抗値を変える場合、自己責任になります。
+	@return 成功: SSI_ERR_SUCCESS
+**/
+unsigned long ContecCpsSsiSetSenseResistor( short Id, double sense )
 {
 	struct cpsssi_ioctl_arg	arg;
-	unsigned long ulSence;
+	unsigned long ulSense;
 
-	ulSence = (unsigned long)( sence * pow(2.0, 10.0 ) );
+	ulSense = (unsigned long)( sense * pow(2.0, 10.0 ) );
 	
-	arg.val = SSI_4P_CHANNEL_SET_SENCE(
-		ulSence
+	arg.val = SSI_4P_CHANNEL_SET_SENSE(
+		ulSense
 	); // 0xe81f4000; // omajinai
 
 
-	ioctl( Id, IOCTL_CPSSSI_SET_SENCE_RESISTANCE, &arg );
+	ioctl( Id, IOCTL_CPSSSI_SET_SENSE_RESISTANCE, &arg );
 
 	return SSI_ERR_SUCCESS;
 }
 
-unsigned long ContecCpsSsiGetSenceRegister( short Id, double *sence )
+/**
+	@~English
+	@brief SSI Library get the sense resistor.
+	@param Id : Device ID
+	@param sense : sense resistor value.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief センス抵抗取得関数
+	@param Id : デバイスID
+	@param sense : センス抵抗値
+	@return 成功: SSI_ERR_SUCCESS
+**/
+unsigned long ContecCpsSsiGetSenseResistor( short Id, double *sense )
 {
 	struct cpsssi_ioctl_arg	arg;
-	unsigned long ulSence;
+	unsigned long ulSense;
 
-	ioctl( Id, IOCTL_CPSSSI_GET_SENCE_RESISTANCE, &arg );
+	ioctl( Id, IOCTL_CPSSSI_GET_SENSE_RESISTANCE, &arg );
 
-	ulSence = SSI_4P_CHANNEL_GET_SENCE( arg.val );
+	ulSense = SSI_4P_CHANNEL_GET_SENSE( arg.val );
 
-	*sence = ( (double)ulSence ) /  pow(2.0, 10.0 ) ;
+	*sense = ( (double)ulSense ) /  pow(2.0, 10.0 ) ;
 
 	return SSI_ERR_SUCCESS;
 }
 
-/**** Running Functions ****/
+//**** Running Functions **********************************************
 
+/**
+	@~English
+	@brief SSI Library get the status.
+	@param Id : Device ID
+	@param SsiStatus : status
+	@note The function get status all channel. The 0 channel's status from 0 to 8 bits, the 1 channel's status from 7 to 15 bits, the 2 channel's status from 16 to 23 bits, the 3 channel's status from 23 to 31 bits.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief ステータス取得関数
+	@param Id : デバイスID
+	@param SsiStatus : ステータス
+	@note ステータスは 32bitで4ch分すべて取得できます。 0-7bitが0ch, 8-15bitが1ch, 16-23bitが2ch, 24-31bitが3chのステータスになります。
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiGetStatus( short Id, unsigned long *SsiStatus )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -221,9 +351,20 @@ unsigned long ContecCpsSsiGetStatus( short Id, unsigned long *SsiStatus )
 	return SSI_ERR_SUCCESS;
 }
 
-/***
-	@note The task script is called function.
-***/
+/**
+	@~English
+	@brief SSI Library Start function.
+	@param Id : Device ID
+	@param SsiChannel : Channel Number
+	@note It is easier to use the ContecCpsSsiSingleTemperature function than using this function.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief スタート関数
+	@param Id : デバイスID
+	@param SsiChannel : チャネル番号
+	@note この関数を使用するより、ContecCpsSsiSingleTemperature関数を使用する方が簡単です。
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiStart( short Id, short SsiChannel )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -236,9 +377,22 @@ unsigned long ContecCpsSsiStart( short Id, short SsiChannel )
 	return SSI_ERR_SUCCESS;
 }
 
-/***
-	@note The task script is called function.
-***/
+/**
+	@~English
+	@brief SSI Library get to convert the start busy status.
+	@param Id : Device ID
+	@param SsiStatus : status
+	@par This function uses after the ContecCpsSsiStart function.
+	@note It is easier to use the ContecCpsSsiSingleTemperature function than using this function.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief ビジーかどうかを取得する関数
+	@param Id : デバイスID
+	@param SsiStatus : ステータス
+	@par この関数は ContecCpsSsiStartを実行してから使用してください。
+	@note この関数を使用するより、ContecCpsSsiSingleTemperature関数を使用する方が簡単です。
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsIsConversionStartBusyStatus( short Id, unsigned long *SsiStatus )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -250,9 +404,24 @@ unsigned long ContecCpsIsConversionStartBusyStatus( short Id, unsigned long *Ssi
 	return SSI_ERR_SUCCESS;
 }
 
-/***
-	@note The task script is called function.
-***/
+/**
+	@~English
+	@brief SSI Library get the data by the channel.
+	@param Id : Device ID
+	@param SsiChannel : Channel Number
+	@param SsiData : The get data of channel.
+	@par This function uses after the no conversion busy bit. (Check the ContecCpsIsConversionStartBusyStatus function )
+	@note It is easier to use the ContecCpsSsiSingleTemperature function than using this function.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief チャネルのデータを取得する関数
+	@param Id : デバイスID
+	@param SsiChannel : チャネル番号
+	@param SsiData : チャネルのデータ
+	@par この関数はビジービットが解除したあと、使用してください。( ContecCpsIsConversionStartBusyStatusで確認してください)
+	@note この関数を使用するより、ContecCpsSsiSingleTemperature関数を使用する方が簡単です。
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiGetData( short Id, short SsiChannel, long *SsiData )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -266,6 +435,20 @@ unsigned long ContecCpsSsiGetData( short Id, short SsiChannel, long *SsiData )
 	return SSI_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief SSI Library start and get the data.
+	@param Id : Device ID
+	@param SsiChannel : Channel Number
+	@param SsiData : The get data of channel.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief スタートしてからデータを取得する関数
+	@param Id : デバイスID
+	@param SsiChannel : チャネル番号
+	@param SsiData : チャネルのデータ
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiSingle( short Id, short SsiChannel, long *SsiData )
 {
 
@@ -278,9 +461,9 @@ unsigned long ContecCpsSsiSingle( short Id, short SsiChannel, long *SsiData )
 	// Start SSI Channel
 	ioctl( Id, IOCTL_CPSSSI_START, &arg );
 	// SSI Status Check
-	//do{
-	//	ContecCpsStartBusyStatus( Id, &status );
-	//}while( !(status & 0x40) );
+	do{
+		ContecCpsIsConversionStartBusyStatus( Id, &status );
+	}while( !(status & 0x40) );
 	// Get SSI Data
 	ioctl( Id, IOCTL_CPSSSI_INDATA, &arg );
 	*SsiData = (long)( arg.val );
@@ -288,6 +471,20 @@ unsigned long ContecCpsSsiSingle( short Id, short SsiChannel, long *SsiData )
 	return SSI_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief SSI Library start and get the temperature　data.
+	@param Id : Device ID
+	@param SsiChannel : Channel Number
+	@param SsiTempData : The get temperature　data of channel.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief スタートしてから温度データを取得する関数
+	@param Id : デバイスID
+	@param SsiChannel : チャネル番号
+	@param SsiTempData : チャネルの温度データ
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiSingleTemperature( short Id, short SsiChannel, double *SsiTempData )
 {
 	long val;
@@ -303,7 +500,21 @@ unsigned long ContecCpsSsiSingleTemperature( short Id, short SsiChannel, double 
 
 }
 
-unsigned long ContecCpsSsiSingleRegistance( short Id, short SsiChannel, double *SsiRegistance )
+/**
+	@~English
+	@brief SSI Library start and calculate the resistance data to get the temperature　data.
+	@param Id : Device ID
+	@param SsiChannel : Channel Number
+	@param SsiResistance : The resistance　data of channel.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief スタートしてから温度を取得し、近似した抵抗値を算出する関数
+	@param Id : デバイスID
+	@param SsiChannel : チャネル番号
+	@param SsiResistance : チャネルの抵抗データ
+	@return 成功: SSI_ERR_SUCCESS
+**/
+unsigned long ContecCpsSsiSingleResistance( short Id, short SsiChannel, double *SsiResistance )
 {
 
 	double tmpVal;
@@ -337,43 +548,87 @@ unsigned long ContecCpsSsiSingleRegistance( short Id, short SsiChannel, double *
 	}
 
 	if( tmpVal > 0.0 ){
-		*SsiRegistance = R0 * ( 1.0 + a * tmpVal + b * pow( tmpVal, 2.0 ) ); 
+		*SsiResistance = R0 * ( 1.0 + a * tmpVal + b * pow( tmpVal, 2.0 ) );
 	}else if( tmpVal < 0.0 ){
-		*SsiRegistance = R0 * ( 1.0 + a * tmpVal + b * pow( tmpVal, 2.0 ) + ( tmpVal -100.0 ) * c * pow( tmpVal, 3.0 ) ); 
+		*SsiResistance = R0 * ( 1.0 + a * tmpVal + b * pow( tmpVal, 2.0 ) + ( tmpVal -100.0 ) * c * pow( tmpVal, 3.0 ) );
 	}else{
-		*SsiRegistance = R0;
+		*SsiResistance = R0;
 	}
 
 	return SSI_ERR_SUCCESS;
 }
 
-
+/**
+	@~English
+	@brief SSI Library calculate the offset data from double data to unsigned char　data.
+	@param data : offset data of double type
+	@param pw : bit shift of double type
+	@par This function is CPS-SSI-4P only, and internal function.
+	@note The offset data returns from 3.96875 to -4.
+	@return cVal : temperature offset.
+	@~Japanese
+	@brief 温度オフセットを符号なしキャラクタ型データへ変換する関数
+	@param data : 補正オフセットデータ( double型 )
+	@param pw : bit shift用データ
+	@par この関数は CPS-SSI-4P専用です。また、内部関数です。
+	@note 変換するオフセットデータの 整数部は 3bit(そのうち 上位1ビットは符号bit), 小数部は5ビットです。( +3.96875 ～ -4 )
+	@return cVal : 補正温度オフセット
+**/
 unsigned char _contec_cpsssi_4p_offset_double2uchar( double data , double pw )
 {
 	unsigned char cVal;
-	cVal = (unsigned char)( data * pw );
+
 	if( data >= 0.0 )
 		cVal = (unsigned char)( data * pw );
-	else
+	else	// マイナスの場合は 2の補数に変換
 		cVal = ((unsigned char)( data * -1 * pw ) ^ 0xFF ) + 1;
 
 	return cVal;
 
 }
 
+/**
+	@~English
+	@brief SSI Library calculate the gain data from double data to unsigned short　data.
+	@param data : gain data of double type
+	@param pw : bit shift of double type
+	@par This function is CPS-SSI-4P only, and internal function.
+	@par The gain data returns from 31.9990234275 to -32.
+	@return sVal : temperature gain.
+	@~Japanese
+	@brief 補正温度ゲインを符号なしショート型データへ変換する関数
+	@param data : 補正ゲインデータ( double型 )
+	@param pw : bit shift用データ
+	@par この関数は CPS-SSI-4P専用です。また、内部関数です。
+	@note 変換するゲインデータの 整数部は 6bit(そのうち 上位1ビットは符号bit), 小数部は10ビットです。( +31.9990234275 ～ -32 )
+	@return sVal : 補正温度ゲイン
+**/
 unsigned short _contec_cpsssi_4p_gain_double2ushort( double data , double pw )
 {
 	unsigned short sVal;
-	sVal = (unsigned short)( data * pw );
+
 	if( data >= 0.0 )
 		sVal = (unsigned short)( data * pw );
-	else
+	else	// マイナスの場合は 2の補数に変換
 		sVal = ((unsigned short)( data * -1 * pw ) ^ 0xFFFF ) + 1;
 
 	return sVal;
-
 }
 
+/**
+	@~English
+	@brief SSI Library calculate the offset data from unsigned char　data to double　data.
+	@param cVal : offset data of unsigned char type
+	@param pw : bit shift of double type
+	@par This function is CPS-SSI-4P only, and internal function.
+	@return offset : temperature offset.
+	@~Japanese
+	@brief 符号なしキャラクタデータを補正温度オフセットに変換する関数
+	@param cVal : オフセットデータ( unsigned char　data )
+	@param pw : bit shift用データ
+	@par この関数は CPS-SSI-4P専用です。また、内部関数です。
+	@return offset : 補正温度オフセット
+**/
 double _contec_cpsssi_4p_offset_uchar2double( unsigned char cVal, double pw )
 {
 	double dblVal;
@@ -386,6 +641,20 @@ double _contec_cpsssi_4p_offset_uchar2double( unsigned char cVal, double pw )
 	return dblVal;
 }
 
+/**
+	@~English
+	@brief SSI Library calculate the gain data from unsigned short to double　data.
+	@param data : gain data of unsigned short type
+	@param pw : bit shift of double type
+	@par This function is CPS-SSI-4P only, and internal function.
+	@return dblVal : temperature gain.
+	@~Japanese
+	@brief 符号なしショート型データを補正温度ゲインへ変換する関数
+	@param data : ゲインデータ( unsigned short型 )
+	@param pw : bit shift用データ
+	@par この関数は CPS-SSI-4P専用です。また、内部関数です。
+	@return 補正温度ゲインデータ
+**/
 double _contec_cpsssi_4p_gain_ushort2double( unsigned short data, double pw )
 {
 	double dblVal;
@@ -398,6 +667,22 @@ double _contec_cpsssi_4p_gain_ushort2double( unsigned short data, double pw )
 }
 
 
+/**
+	@~English
+	@brief SSI Library sets temperature　offset. ( unsigned short type )
+	@param Id : Device ID
+	@param ch : Channel Number
+	@param iWire : Wire type ( SSI_CHANNEL_3WIRE or SSI_CHANNEL_4WIRE )
+	@param data : The offset data. ( unsigned short data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度オフセットを設定する関数 ( 符号なしショート型）
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param iWire : 三線式か四線式  ( SSI_CHANNEL_3WIRE か SSI_CHANNEL_4WIRE )
+	@param data : オフセットデータ( unsigned short型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiSetCalibrationOffsetToUShort( short Id, unsigned char ch, unsigned int iWire, unsigned short data )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -416,6 +701,22 @@ unsigned long ContecCpsSsiSetCalibrationOffsetToUShort( short Id, unsigned char 
 
 } 
 
+/**
+	@~English
+	@brief SSI Library sets temperature　offset.( double type )
+	@param Id : Device ID
+	@param ch : Channel Number
+	@param iWire : Wire type ( SSI_CHANNEL_3WIRE or SSI_CHANNEL_4WIRE )
+	@param data : The offset data. ( double data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度オフセットを設定する関数(浮動小数点型)
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param iWire : 三線式か四線式  ( SSI_CHANNEL_3WIRE か SSI_CHANNEL_4WIRE )
+	@param data : オフセットデータ( double型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiSetCalibrationOffset( short Id, unsigned char ch, unsigned int iWire, double data )
 {
 	unsigned char cVal = 0;
@@ -426,6 +727,22 @@ unsigned long ContecCpsSsiSetCalibrationOffset( short Id, unsigned char ch, unsi
 
 } 
 
+/**
+	@~English
+	@brief SSI Library gets temperature　offset. ( unsigned short type )
+	@param Id : Device ID
+	@param ch : Channel Number
+	@param iWire : Wire type ( SSI_CHANNEL_3WIRE or SSI_CHANNEL_4WIRE )
+	@param data : The offset data. ( unsigned short data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度オフセットを取得する関数 ( 符号なしショート型）
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param iWire : 三線式か四線式  ( SSI_CHANNEL_3WIRE か SSI_CHANNEL_4WIRE )
+	@param data : オフセットデータ( unsigned short型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiGetCalibrationOffsetToUShort( short Id, unsigned char ch, unsigned int iWire, unsigned short *data )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -443,6 +760,22 @@ unsigned long ContecCpsSsiGetCalibrationOffsetToUShort( short Id, unsigned char 
 	return SSI_ERR_SUCCESS;
 } 
 
+/**
+	@~English
+	@brief SSI Library gets temperature　offset.( double type )
+	@param Id : Device ID
+	@param ch : Channel Number
+	@param iWire : Wire type ( SSI_CHANNEL_3WIRE or SSI_CHANNEL_4WIRE )
+	@param data : The offset data. ( double data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度オフセットを取得する関数(浮動小数点型)
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param iWire : 三線式か四線式  ( SSI_CHANNEL_3WIRE か SSI_CHANNEL_4WIRE )
+	@param data : オフセットデータ( double型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiGetCalibrationOffset( short Id, unsigned char ch, unsigned int iWire, double *data )
 {
 	unsigned short usData = 0;
@@ -454,31 +787,79 @@ unsigned long ContecCpsSsiGetCalibrationOffset( short Id, unsigned char ch, unsi
 	return lRet;
 } 
 
+/**
+	@~English
+	@brief SSI Library sets temperature　calibration　gain. ( double type )
+	@param Id : Device ID
+	@param data : The gain data. ( double data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度補正ゲインを設定する関数 ( 浮動小数点型）
+	@param Id : デバイスID
+	@param data : ゲインデータ( double 型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiSetCalibrationGain( short Id, double data )
 {
-	return ContecCpsSsiSetSenceRegister( Id, (data + SSI_4P_SENCE_DEFAULT_VALUE) );
+	return ContecCpsSsiSetSenseResistor( Id, (data + SSI_4P_SENSE_DEFAULT_VALUE) );
 } 
 
+/**
+	@~English
+	@brief SSI Library sets temperature　calibration　gain. ( unsigned short type )
+	@param Id : Device ID
+	@param data : The gain data. ( unsigned short data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度補正ゲインを設定する関数 ( 符号なしショート型）
+	@param Id : デバイスID
+	@param data : ゲインデータ( 符号なしショート型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiSetCalibrationGainToUShort( short Id, unsigned short data )
 {
-	double sence;
+	double sense;
 
-	sence = _contec_cpsssi_4p_gain_ushort2double( data, pow( 2.0, 10.0 ) );
+	sense = _contec_cpsssi_4p_gain_ushort2double( data, pow( 2.0, 10.0 ) );
 
-	return ContecCpsSsiSetSenceRegister( Id, (sence + SSI_4P_SENCE_DEFAULT_VALUE) );
+	return ContecCpsSsiSetSenseResistor( Id, (sense + SSI_4P_SENSE_DEFAULT_VALUE) );
 
 } 
 
+/**
+	@~English
+	@brief SSI Library gets temperature　calibration　gain. ( double type )
+	@param Id : Device ID
+	@param data : The gain data. ( double data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度補正ゲインを取得する関数 ( 浮動小数点型）
+	@param Id : デバイスID
+	@param data : ゲインデータ( double 型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiGetCalibrationGain( short Id, double *data )
 {
 	double tmpData = 0.0;
 	unsigned long lRet;
 
-	lRet = ContecCpsSsiGetSenceRegister( Id, &tmpData );
-	*data = ( tmpData - SSI_4P_SENCE_DEFAULT_VALUE );
+	lRet = ContecCpsSsiGetSenseResistor( Id, &tmpData );
+	*data = ( tmpData - SSI_4P_SENSE_DEFAULT_VALUE );
 	return lRet;
 } 
 
+/**
+	@~English
+	@brief SSI Library the rom is saved by temperature　calibration　gain. ( unsigned short type )
+	@param Id : Device ID
+	@param value : The gain data. ( unsigned short data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief ROMに 温度ゲインを書き込む関数 ( 符号なしショート型）
+	@param Id : デバイスID
+	@param value : ゲインデータ( 符号なしショート型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiWriteCalibrationGainToUShort( short Id, unsigned short value )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -491,6 +872,20 @@ unsigned long ContecCpsSsiWriteCalibrationGainToUShort( short Id, unsigned short
 
 }
 
+/**
+	@~English
+	@brief SSI Library the rom is saved by temperature　calibration　gain. ( double type )
+	@param Id : Device ID
+	@param dblVal : The gain data. ( double data )
+	@warning If you overwrite the gain value, you own risk.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief ROMに 温度ゲインを書き込む関数 ( 浮動小数点型）
+	@param Id : デバイスID
+	@param dblVal : ゲインデータ( 浮動小数点型 )
+	@warning もしROMにゲインの上書きを行った場合、自己責任になります。
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiWriteCalibrationGain( short Id, double dblVal )
 {
 
@@ -502,6 +897,24 @@ unsigned long ContecCpsSsiWriteCalibrationGain( short Id, double dblVal )
 
 }
 
+/**
+	@~English
+	@brief SSI Library ROM is written by temperature　offset.(unsigned char type )
+	@param Id : Device ID
+	@param ch : Channel Number
+	@param cWire3Val : The offset data of 3-Wire. ( unsigned char data )
+	@param cWire4Val : The offset data of 4-Wire. ( unsigned char data )
+	@warning If you overwrite the offset value, you own risk.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度オフセットをROMに書き込む関数( 符号なしキャラクタ型)
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param cWire3Val : 三線式オフセットデータ( unsigned char型 )
+	@param cWire4Val : 四線式オフセットデータ( unsigned char型 )
+	@warning もしROMにオフセットの上書きを行った場合、自己責任になります。
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiWriteCalibrationOffsetToUChar( short Id, unsigned char ch, unsigned char cWire3Val, unsigned char cWire4Val )
 {
 	struct cpsssi_ioctl_arg	arg;
@@ -513,7 +926,26 @@ unsigned long ContecCpsSsiWriteCalibrationOffsetToUChar( short Id, unsigned char
 	return SSI_ERR_SUCCESS;	
 }
 
-
+/**
+	@~English
+	@brief SSI Library ROM is written by temperature　offset.(double type )
+	@param Id : Device ID
+	@param ch : Channel Number
+	@param wire3Value : The offset data of 3-Wire. ( double data )
+	@param wire4Value : The offset data of 4-Wire. ( double data )
+	@attention If rom data write before clear ROM data.(Call the ContecCpsSsiClearCalibrationData funtion)
+	@warning If you write the offset value, you own risk.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度オフセットをROMに書き込む関数( 符号小数点型)
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param wire3Value : 三線式オフセットデータ( double型 )
+	@param wire4Value : 四線式オフセットデータ( double型 )
+	@attention 書き込みを行う場合、ContecCpsSsiClearCalibrationDataにてROMデータを消去する必要があります。
+	@warning もしROMにオフセットの書き込みを行った場合、自己責任になります。
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiWriteCalibrationOffset( short Id, unsigned char ch, double wire3Value, double wire4Value )
 {
 	unsigned char cWire3Val = 0;
@@ -525,6 +957,18 @@ unsigned long ContecCpsSsiWriteCalibrationOffset( short Id, unsigned char ch, do
 	return ContecCpsSsiWriteCalibrationOffsetToUChar( Id, ch, cWire3Val, cWire4Val );
 }
 
+/**
+	@~English
+	@brief SSI Library the rom is read by temperature　calibration　gain. ( double type )
+	@param Id : Device ID
+	@param dblVal : The gain data. ( double data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief ROMに 温度ゲインを読み出す関数 ( 浮動小数点型）
+	@param Id : デバイスID
+	@param dblVal : ゲインデータ( 浮動小数点型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiReadCalibrationGain( short Id, double *dblVal )
 {
 	int aisel = 0;
@@ -542,6 +986,22 @@ unsigned long ContecCpsSsiReadCalibrationGain( short Id, double *dblVal )
 
 }
 
+/**
+	@~English
+	@brief SSI Library ROM is read by temperature　offset.(　double type )
+	@param Id : Device ID
+	@param ch : Channel Number
+	@param wire3Value : The offset data of 3-Wire. ( double data )
+	@param wire4Value : The offset data of 4-Wire. ( double data )
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief 温度オフセットをROMに読み出す関数( 浮動小数点型)
+	@param Id : デバイスID
+	@param ch : チャネル番号
+	@param wire3Value : 三線式オフセットデータ( double型 )
+	@param wire4Value : 四線式オフセットデータ( double型 )
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiReadCalibrationOffset( short Id, unsigned char ch, double *wire3Value, double *wire4Value )
 {
 	unsigned char tmpVal;
@@ -571,6 +1031,20 @@ unsigned long ContecCpsSsiReadCalibrationOffset( short Id, unsigned char ch, dou
 
 }
 
+/**
+	@~English
+	@brief SSI Library ROM , FPGA calibrate data clear function.
+	@param Id : Device ID
+	@param iClear : clear flag
+	@warning If you clear the ROM data, you own risk.
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief キャリブレーションデータを消去する関数
+	@param Id : デバイスID
+	@param iClear : クリア用フラグ
+	@warning もしROMに保存していたデータをクリアする場合、自己責任になります。
+	@return 成功: SSI_ERR_SUCCESS
+**/
 unsigned long ContecCpsSsiClearCalibrationData( short Id, int iClear )
 {
 	int cnt;

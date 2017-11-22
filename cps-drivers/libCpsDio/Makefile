@@ -10,10 +10,10 @@ TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR}/rootfs
 
 all:$(OBJ) ${TARGET}
 
-$(OBJ):	
+$(OBJ):	$(SRC) ../include/libcpsdio.h
 	${CC} ${INCLUDE} ${LD_FLAGS} $(SRC) -c -fPIC -o $(OBJ)
 
-$(TARGET):
+$(TARGET): $(OBJ)
 	${CC} ${INCLUDE} ${LD_FLAGS}  -shared -O2 -Wl,-soname,$(TARGET) -o $(TARGET) $(OBJ)
 
 install:

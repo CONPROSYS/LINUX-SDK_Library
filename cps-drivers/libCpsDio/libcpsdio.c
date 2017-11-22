@@ -23,8 +23,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
-#include "cpsdio.h"
+#include "../include/cpsdio.h"
 #include "../include/libcpsdio.h"
+
 
 typedef struct __contec_cps_dio_int_callback__
 {
@@ -34,6 +35,14 @@ typedef struct __contec_cps_dio_int_callback__
 
 CONTEC_CPS_DIO_INT_CALLBACK_LIST contec_cps_dio_cb_list[CPS_DEVICE_MAX_NUM];
 
+/**
+	@~English
+	@brief callback process function.(The running process is called to receive user's signal.)
+	@param signo : signal number
+	@~Japanese
+	@param signo : シグナルナンバー
+	@brief コールバック内部関数　（ユーザシグナル受信で動作）
+**/
 void _contec_signal_proc( int signo )
 {
 	int cnt;
@@ -53,7 +62,19 @@ void _contec_signal_proc( int signo )
 	}
 }
 
+/**
+	@~English
+	@brief DIO Library Initialize.
+	@param DeviceName : Device node name ( cpsdioX )
+	@param Id : Device Access Id
+	@return Success: DIO_ERR_SUCCESS, Failed: otherwise DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 初期化関数.
+	@param DeviceName : デバイスノード名  ( cpsdioX )
+	@param Id : デバイスID
+	@return 成功: DIO_ERR_SUCCESS, 失敗: DIO_ERR_SUCCESS 以外
 
+**/
 unsigned long ContecCpsDioInit( char *DeviceName, short *Id )
 {
 	// open
@@ -70,6 +91,16 @@ unsigned long ContecCpsDioInit( char *DeviceName, short *Id )
 
 }
 
+/**
+	@~English
+	@brief DIO Library Exit.
+	@param Id : Device ID
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 終了関数.
+	@param Id : デバイスID
+	@return 成功:  DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioExit( short Id )
 {
 	// close
@@ -77,18 +108,59 @@ unsigned long ContecCpsDioExit( short Id )
 	return DIO_ERR_SUCCESS;
 
 }
+
+/**
+	@~English
+	@brief DIO Library output from ErrorNumber to ErrorString.
+	@param code : Error Code
+	@param Str : Error String
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief エラー文字列出力関数（未実装）
+	@param code : エラーコード
+	@param Str : エラー文字列
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioGetErrorStrings( unsigned long code, char *Str )
 {
 
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library query Device.
+	@param Id : Device ID
+	@param DeviceName : Device Node Name ( cpsdioX )
+	@param Device : Device Name ( CPS-DIO-0808L , etc )
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief クエリデバイス関数（未実装）
+	@param Id : デバイスID
+	@param DeviceName : デバイスノード名 ( cpsdioX )
+	@param Device : デバイス型式名 (  CPS-DIO-0808Lなど )
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioQueryDeviceName( short Id, char *DeviceName, char *Device )
 {
 
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library get maximum ports.
+	@param Id : Device ID
+	@param InPortNum : in port number.
+	@param OutPortNum : out port number.
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスの最大のポート数を取得します
+	@param Id : デバイスID
+	@param InPortNum :入力ポート数
+	@param OutPortNum : 出力ポート数
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioGetMaxPort( short Id, short *InPortNum, short *OutPortNum )
 {
 
@@ -107,6 +179,20 @@ unsigned long ContecCpsDioGetMaxPort( short Id, short *InPortNum, short *OutPort
 
 
 /**** Single Functions ****/
+/**
+	@~English
+	@brief DIO Library get input data.(byte size).
+	@param Id : Device ID
+	@param Num : in port number.
+	@param Data : data.
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定されたポートのデータをバイト単位で取得します
+	@param Id : デバイスID
+	@param Num :入力ポート
+	@param Data : データ
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioInpByte( short Id, short Num, unsigned char *Data)
 {
 	struct cpsdio_ioctl_arg	arg;
@@ -120,6 +206,20 @@ unsigned long ContecCpsDioInpByte( short Id, short Num, unsigned char *Data)
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library get input data.(bit size).
+	@param Id : Device ID
+	@param Num : in bit number.
+	@param Data : data.( 0 or 1 )
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定されたポートのデータをビット単位で取得します
+	@param Id : デバイスID
+	@param Num :入力ビット
+	@param Data : データ (  0 or 1 )
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioInpBit( short Id, short Num, unsigned char *Data )
 {
 
@@ -134,6 +234,20 @@ unsigned long ContecCpsDioInpBit( short Id, short Num, unsigned char *Data )
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library set output data.(byte size).
+	@param Id : Device ID
+	@param Num : out port number.
+	@param Data : data.
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定されたポートのデータをバイト単位で設定します
+	@param Id : デバイスID
+	@param Num :出力ポート
+	@param Data : データ
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioOutByte( short Id, short Num, unsigned char Data)
 {
 
@@ -148,6 +262,20 @@ unsigned long ContecCpsDioOutByte( short Id, short Num, unsigned char Data)
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library set output data.(bit size).
+	@param Id : Device ID
+	@param Num : out bit number.
+	@param Data : data.( 0 or 1 )
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定されたポートのデータをビット単位で設定します
+	@param Id : デバイスID
+	@param Num :出力ビット
+	@param Data : データ (  0 or 1 )
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioOutBit( short Id, short Num, unsigned char Data )
 {
 
@@ -162,6 +290,20 @@ unsigned long ContecCpsDioOutBit( short Id, short Num, unsigned char Data )
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library get output  echo data.(byte size).
+	@param Id : Device ID
+	@param Num : in byte number.
+	@param Data : data.
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定されたポートのデータをバイト単位で取得します
+	@param Id : デバイスID
+	@param Num :出力ポート
+	@param Data : データ
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioEchoBackByte( short Id, short Num, unsigned char *Data)
 {
 	struct cpsdio_ioctl_arg	arg;
@@ -176,6 +318,20 @@ unsigned long ContecCpsDioEchoBackByte( short Id, short Num, unsigned char *Data
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library get output ehco data.(bit size).
+	@param Id : Device ID
+	@param Num : out bit number.
+	@param Data : data.( 0 or 1 )
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定されたポートのデータをビット単位で取得します
+	@param Id : デバイスID
+	@param Num :出力ビット
+	@param Data : データ (  0 or 1 )
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioEchoBackBit( short Id, short Num, unsigned char *Data)
 {
 
@@ -190,8 +346,23 @@ unsigned long ContecCpsDioEchoBackBit( short Id, short Num, unsigned char *Data)
 	return DIO_ERR_SUCCESS;
 }
 
-
-/**** Multi Functions ****/
+// Multi Functions -----
+/**
+	@~English
+	@brief DIO Library get many input data.(byte size).
+	@param Id : Device ID
+	@param Ports : in Port number Array.
+	@param PortsDimensionNum : in Port Array Length Number 
+	@param Data : data array.
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定された複数ポートのデータをバイト単位で取得します
+	@param Id : デバイスID
+	@param Ports : 入力ポート配列
+	@param PortsDimensionNum :入力ポート配列数
+	@param Data : データ配列
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioInpMultiByte( short Id, short Ports[], short PortsDimensionNum, unsigned char Data[] )
 {
 	short count;
@@ -203,7 +374,22 @@ unsigned long ContecCpsDioInpMultiByte( short Id, short Ports[], short PortsDime
 
 	return DIO_ERR_SUCCESS;
 }
-
+/**
+	@~English
+	@brief DIO Library get many input data.(bit size).
+	@param Id : Device ID
+	@param Bits : in Bit number Array.
+	@param BitsDimensionNum : in Bit Array Length Number 
+	@param Data : data array.( Value : 0 or 1 )
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定された複数ポートのデータをビット単位で取得します
+	@param Id : デバイスID
+	@param Bits : 入力ポート配列
+	@param BitsDimensionNum :入力ポート配列数
+	@param Data : データ配列 ( 値: 0 or 1 )
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioInpMultiBit( short Id, short Bits[],short BitsDimensionNum, char Data[])
 {
 
@@ -217,6 +403,22 @@ unsigned long ContecCpsDioInpMultiBit( short Id, short Bits[],short BitsDimensio
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library set many output data.(byte size).
+	@param Id : Device ID
+	@param Ports : out Port number Array.
+	@param PortsDimensionNum : out Port Array Length Number 
+	@param Data : data array.
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定された複数ポートのデータをバイト単位で設定します
+	@param Id : デバイスID
+	@param Ports : 出力ポート配列
+	@param PortsDimensionNum :出力ポート配列数
+	@param Data : データ配列
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioOutMultiByte( short Id, short Ports[], short PortsDimensionNum, unsigned char Data[] )
 {
 	short count;
@@ -228,6 +430,22 @@ unsigned long ContecCpsDioOutMultiByte( short Id, short Ports[], short PortsDime
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library set many output data.(bit size).
+	@param Id : Device ID
+	@param Bits : out Bit number Array.
+	@param BitsDimensionNum : out Bit Array Length Number 
+	@param Data : data array.( Value : 0 or 1 )
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定された複数ポートのデータをビット単位で設定します
+	@param Id : デバイスID
+	@param Bits : 出力ポート配列
+	@param BitsDimensionNum :出力ポート配列数
+	@param Data : データ配列 ( 値: 0 or 1 )
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioOutMultiBit( short Id, short Bits[],short BitsDimensionNum, char Data[])
 {
 	short count;
@@ -239,6 +457,22 @@ unsigned long ContecCpsDioOutMultiBit( short Id, short Bits[],short BitsDimensio
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library get many output echo data.(byte size).
+	@param Id : Device ID
+	@param Ports : out Port number Array.
+	@param PortsDimensionNum : out Port Array Length Number 
+	@param Data : data array.
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定された複数ポートのデータをバイト単位で取得します
+	@param Id : デバイスID
+	@param Ports : 出力ポート配列
+	@param PortsDimensionNum :出力ポート配列数
+	@param Data : データ配列
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioEchoBackMultiByte( short Id, short Ports[], short PortsDimensionNum, unsigned char Data[] )
 {
 	short count;
@@ -250,6 +484,22 @@ unsigned long ContecCpsDioEchoBackMultiByte( short Id, short Ports[], short Port
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library get many output echo data.(bit size).
+	@param Id : Device ID
+	@param Bits : out Bit number Array.
+	@param BitsDimensionNum : out Bit Array Length Number 
+	@param Data : data array.( Value : 0 or 1 )
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定された複数ポートのデータをビット単位で取得します
+	@param Id : デバイスID
+	@param Bits : 出力ポート配列
+	@param BitsDimensionNum :出力ポート配列数
+	@param Data : データ配列 ( 値: 0 or 1 )
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioEchoBackMultiBit( short Id, short Bits[],short BitsDimensionNum, char Data[])
 {
 	short count;
@@ -263,7 +513,19 @@ unsigned long ContecCpsDioEchoBackMultiBit( short Id, short Bits[],short BitsDim
 }
 
 
-/**** Digital Filter Functions ****/
+//-- Digital Filter Functions -----------------
+/**
+	@~English
+	@brief DIO Library set digital filter by the device.
+	@param Id : Device ID
+	@param FilterValue : filter Values
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスにデジタルフィルタを設定します。
+	@param Id : デバイスID
+	@param FilterValue : フィルタ定数
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioSetDigitalFilter( short Id, unsigned char FilterValue )
 {
 	struct cpsdio_ioctl_arg	arg;
@@ -275,6 +537,18 @@ unsigned long ContecCpsDioSetDigitalFilter( short Id, unsigned char FilterValue 
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library get digital filter by the device.
+	@param Id : Device ID
+	@param FilterValue : filter Values
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスにデジタルフィルタを取得します。
+	@param Id : デバイスID
+	@param FilterValue : フィルタ定数
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioGetDigitalFilter( short Id, unsigned char *FilterValue )
 {
 	struct cpsdio_ioctl_arg	arg;
@@ -286,6 +560,20 @@ unsigned long ContecCpsDioGetDigitalFilter( short Id, unsigned char *FilterValue
 	return DIO_ERR_SUCCESS;
 }
 /**** Interrupt Event Functions ****/
+/**
+	@~English
+	@brief DIO Library set notify interrupt.
+	@param Id : Device ID
+	@param BitNum : Bit number
+	@param Logic :
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief を取得します。
+	@param Id : デバイスID
+	@param BitNum : ビット番号
+	@param Logic :
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioNotifyInterrupt( short Id, short BitNum, short Logic )
 {
 	struct cpsdio_ioctl_arg	arg;
@@ -309,6 +597,20 @@ unsigned long ContecCpsDioNotifyInterrupt( short Id, short BitNum, short Logic )
 	return DIO_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief DIO Library set callback proc.
+	@param Id : Device ID
+	@param cb : Callback Funciton
+	@param Param : Parameters
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief コールバック関数を設定する関数です。(未実装)
+	@param Id : デバイスID
+	@param cb : コールバック関数
+	@param Param : パラメータ
+	@return 成功: DIO_ERR_SUCCESS
+**/
 unsigned long ContecCpsDioSetInterruptCallBackProc( short Id, PCONTEC_CPS_DIO_INT_CALLBACK cb, void* Param )
 {
 	struct cpsdio_ioctl_arg	arg;
