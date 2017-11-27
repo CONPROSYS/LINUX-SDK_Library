@@ -23,8 +23,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
-#include "../include/cpsdio.h"
-#include "../include/libcpsdio.h"
+
+#include "cpsdio.h"
+
+#ifdef CONFIG_CONPROSYS_SDK
+ #include "../include/libcpsdio.h"
+#else
+ #include "libcpsdio.h"
+#endif
 
 
 typedef struct __contec_cps_dio_int_callback__
@@ -229,7 +235,9 @@ unsigned long ContecCpsDioInpBit( short Id, short Num, unsigned char *Data )
 
 	ioctl( Id, IOCTL_CPSDIO_INP_PORT, &arg );
 
-	*Data = ( arg.val  & (1 << (Num % 8) ) ) >> (1 << (Num % 8) );
+//////////////////////////////// Ver.1.0.3
+	*Data = ( arg.val  & (1 << (Num % 8) ) ) >> (Num % 8);
+//////////////////////////////// Ver.1.0.3
 
 	return DIO_ERR_SUCCESS;
 }
@@ -283,7 +291,10 @@ unsigned long ContecCpsDioOutBit( short Id, short Num, unsigned char Data )
 
 	ioctl( Id, IOCTL_CPSDIO_INP_PORT , &arg );	
 	arg.port = Num / 8;
-	arg.val = arg.val ^ (  ~(1 << (Num % 8) ) ) | ( Data << (Num % 8 ) );
+
+//////////////////////////////// Ver.1.0.3
+	arg.val = arg.val & (  ~(1 << (Num % 8) ) ) | ( Data << (Num % 8 ) );
+//////////////////////////////// Ver.1.0.3
 
 	ioctl( Id, IOCTL_CPSDIO_OUT_PORT , &arg );
 
@@ -341,7 +352,9 @@ unsigned long ContecCpsDioEchoBackBit( short Id, short Num, unsigned char *Data)
 		
 	ioctl( Id, IOCTL_CPSDIO_OUT_PORT_ECHO, &arg );
 
-	*Data = ( arg.val  & (1 << (Num % 8) ) ) >> (1 << (Num % 8) );
+//////////////////////////////// Ver.1.0.3
+	*Data = ( arg.val  & (1 << (Num % 8) ) ) >> (Num % 8);
+//////////////////////////////// Ver.1.0.3
 
 	return DIO_ERR_SUCCESS;
 }
@@ -559,7 +572,60 @@ unsigned long ContecCpsDioGetDigitalFilter( short Id, unsigned char *FilterValue
 
 	return DIO_ERR_SUCCESS;
 }
+
+
+/**** Internal Power Supply Functions ****/
+
+/**
+	@~English
+	@brief DIO Library set internal power supply by the device.
+	@param Id : Device ID
+	@param isInternal : 0... External, 1... Internal
+	@par This function is called by CPS-DIO-****BL Series.
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスに内部電源か外部電源の設定を行います。
+	@param Id : デバイスID
+	@param isInternal : 電源フラグ (0… 外部電源, 1...内部電源 )
+	@par この関数は CPS-DIO-****BL Series のみ使用できます。
+	@return 成功: DIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsDioSetInternalPowerSupply( short Id, unsigned char isInternal )
+{
+	struct cpsdio_ioctl_arg	arg;
+
+	arg.val = (isInternal & 0x01);
+
+	ioctl( Id, IOCTL_CPSDIO_SET_INTERNAL_POW	 , &arg );
+
+	return DIO_ERR_SUCCESS;
+}
+
+/**
+	@~English
+	@brief DIO Library get internal power supply by the device.
+	@param Id : Device ID
+	@param isInternal : 0... External, 1... Internal
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスの内部電源か外部電源か取得します。
+	@param Id : デバイスID
+	@param isInternal : 電源フラグ (0… 外部電源, 1...内部電源 )
+	@return 成功: DIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsDioGetInternalPowerSupply( short Id, unsigned char *isInternal )
+{
+	struct cpsdio_ioctl_arg	arg;
+
+	ioctl( Id, IOCTL_CPSDIO_GET_INTERNAL_POW, &arg );
+
+	*isInternal = ( arg.val );
+
+	return DIO_ERR_SUCCESS;
+}
+
 /**** Interrupt Event Functions ****/
+
 /**
 	@~English
 	@brief DIO Library set notify interrupt.

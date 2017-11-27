@@ -24,8 +24,14 @@
 #include <unistd.h>
 #include <signal.h>
 #include <math.h>
-#include "../include/cpsssi.h"
-#include "../include/libcpsssi.h"
+
+#include "cpsssi.h"
+
+#ifdef CONFIG_CONPROSYS_SDK
+ #include "../include/libcpsssi.h"
+#else
+ #include "libcpsssi.h"
+#endif
 
 typedef struct __contec_cps_ssi_int_callback__
 {

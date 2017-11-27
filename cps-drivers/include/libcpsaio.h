@@ -45,7 +45,10 @@
 /* Ai Calibration */
 #define CPSAIO_AI_CALIBRATION_SELECT_OFFSET	0
 #define CPSAIO_AI_CALIBRATION_SELECT_GAIN	1
+
 #define CPSAIO_AI_CALIBRATION_RANGE_PM10	0
+#define CPSAIO_AI_CALIBRATION_RANGE_P20MA	7
+
 #define CPSAIO_AI_CALIBRATION_DATA( sel, channel, range, aisel, data ) \
 	( ( (data & 0xFF) << 16 ) | ( (aisel & 0x01 ) << 4 ) | ( (range & 0x07) << 1 ) | ( sel & 0x01 ) )
 #define CPSAIO_AI_CALIBRATION_GETSELECT( val )	(val & 0x00000001 )
@@ -56,7 +59,10 @@
 /* Ao Calibration */
 #define CPSAIO_AO_CALIBRATION_SELECT_OFFSET	0
 #define CPSAIO_AO_CALIBRATION_SELECT_GAIN	1
+
+#define CPSAIO_AO_CALIBRATION_RANGE_PM10	0
 #define CPSAIO_AO_CALIBRATION_RANGE_P20MA	7
+
 #define CPSAIO_AO_CALIBRATION_DATA( sel, channel, range, aosel, data ) \
 	( ( (data & 0xFF) << 16 ) | ( (channel & 0x03 ) << 4 ) | ( (range & 0x07) << 1 ) | ( sel & 0x01 ) )
 #define CPSAIO_AO_CALIBRATION_GETSELECT( val )	(val & 0x00000001 )

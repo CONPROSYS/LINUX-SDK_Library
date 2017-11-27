@@ -1,20 +1,19 @@
-#CC = gcc
-CC = arm-linux-gnueabi-gcc
+CC=${CROSS_COMPILE}gcc
 TARGET=libCpsAio.so
 OBJ=libcpsaio.o
 SRC=libcpsaio.c
 CFLAGS= -g -Wall
-INCLUDE= -I$(CPS_SDK_ROOTDIR)/driver/cps-drivers/include
-VERSION =1.0.4
-TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR}/rootfs
+INCLUDE= -I$(CPS_SDK_ROOTDIR)/driver/cps-drivers/include -I$(CPS_SDK_ROOTDIR)/lib/cps-drivers/include
+VERSION =1.0.5
+TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR}/${CPS_SDK_ROOTFS}
 
-all:$(OBJ) ${TARGET}
+all: $(TARGET)
+
+$(TARGET): $(OBJ)
+	${CC} ${INCLUDE} ${LD_FLAGS}  -shared -O2 -Wl,-soname,$(TARGET) -o $(TARGET) $(OBJ) -lm
 
 $(OBJ):	$(SRC) ../include/libcpsaio.h
 	${CC} ${INCLUDE} ${LD_FLAGS} $(SRC) -c -fPIC -o $(OBJ)
-
-$(TARGET): 
-	${CC} ${INCLUDE} ${LD_FLAGS}  -shared -O2 -Wl,-soname,$(TARGET) -o $(TARGET) $(OBJ) -lm
 
 install:
 	cp -p $(TARGET) $(TARGET_ROOTFS)/usr/local/lib/$(TARGET).$(VERSION)

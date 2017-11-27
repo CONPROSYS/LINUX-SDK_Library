@@ -1,6 +1,8 @@
 subdirs = libCpsAio libCpsDio libCpsSsi
 MAKE=make --no-print-directory -e
 
+TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR}/${CPS_SDK_ROOTFS}
+
 all:	
 	@for subdir in $(subdirs) ; do \
 	(cd $$subdir && $(MAKE)) ;\
@@ -15,6 +17,9 @@ release_copy:
 	@for subdir in $(subdirs) ; do \
 	(cd $$subdir && $(MAKE) release_copy ) ;\
 	done
+
+sdk_install:
+	cp -p include/*  $(TARGET_ROOTFS)/usr/local/include
 
 clean:
 	@for subdir in $(subdirs) ; do \

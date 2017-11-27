@@ -1,12 +1,11 @@
-#CC = gcc
-CC = arm-linux-gnueabi-gcc
+CC=${CROSS_COMPILE}gcc
 TARGET=libCpsSsi.so
 OBJ=libcpsssi.o
 SRC=libcpsssi.c
 CFLAGS= -g -Wall
-INCLUDE= -I$(CPS_SDK_ROOTDIR)/driver/cps-drivers/include
-VERSION =1.0.1
-TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR)}rootfs
+INCLUDE= -I$(CPS_SDK_ROOTDIR)/driver/cps-drivers/include -I$(CPS_SDK_ROOTDIR)/lib/cps-drivers/include
+VERSION =1.0.2
+TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR}/${CPS_SDK_ROOTFS}
 
 all:$(OBJ) ${TARGET}
 

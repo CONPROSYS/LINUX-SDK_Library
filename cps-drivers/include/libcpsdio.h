@@ -64,6 +64,10 @@ extern unsigned long ContecCpsDioEchoBackMultiBit( short Id, short Bits[],short 
 extern unsigned long ContecCpsDioSetDigitalFilter( short Id, unsigned char FilterValue );
 extern unsigned long ContecCpsDioGetDigitalFilter( short Id, unsigned char *FilterValue );
 
+/**** Internal Power Supply Functions ****/
+extern unsigned long ContecCpsDioSetInternalPowerSupply( short Id, unsigned char isInternal );
+extern unsigned long ContecCpsDioGetInternalPowerSupply( short Id, unsigned char *isInternal );
+
 /**** INTERRUPT Event Functions ****/
 extern unsigned long ContecCpsDioNotifyInterrupt( short Id, short BitNum, short Logic );
 extern unsigned long ContecCpsDioSetInterruptCallBackProc( short Id, PCONTEC_CPS_DIO_INT_CALLBACK cb, void* Param );
