@@ -1,5 +1,5 @@
 subdirs = libCpsAio libCpsDio libCpsSsi
-MAKE=make --no-print-directory -e
+MAKE=make --no-print-directory 
 
 TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR}/${CPS_SDK_ROOTFS}
 

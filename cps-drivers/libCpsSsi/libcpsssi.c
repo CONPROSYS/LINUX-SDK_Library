@@ -33,6 +33,8 @@
  #include "libcpsssi.h"
 #endif
 
+#define CONTEC_CPSSSI_LIB_VERSION	"1.0.5"
+
 typedef struct __contec_cps_ssi_int_callback__
 {
 	PCONTEC_CPS_SSI_INT_CALLBACK func;
@@ -161,6 +163,40 @@ unsigned long ContecCpsSsiQueryDeviceName( short Id, char *DeviceName, char *Dev
 	return SSI_ERR_SUCCESS;
 }
 
+/**
+	@~English
+	@brief SSI Library gets driver and library version.
+	@param Id : Device ID
+	@param libVer : library version
+	@param drvVer : driver version
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief センサ入力デバイスのドライバとライブラリのバージョン文字列を取得します。
+	@param Id : デバイスID
+	@param libVer : ライブラリバージョン
+	@param drvVer : ドライババージョン
+	@note Ver.1.0.5 Change from cpsaio_ioctl_arg to cpsaio_ioctl_string_arg.
+	@return 成功: SSI_ERR_SUCCESS
+**/
+unsigned long ContecCpsSsiGetVersion( short Id , unsigned char libVer[] , unsigned char drvVer[] )
+{
+
+	struct cpsssi_ioctl_string_arg	arg;
+	int len;
+
+
+	ioctl( Id, IOCTL_CPSSSI_GET_DRIVER_VERSION, &arg );
+
+	len = sizeof( arg.str ) / sizeof( arg.str[0] );
+	memcpy(drvVer, arg.str, len);
+//	strcpy_s(drvVer, arg.str);
+
+	len = sizeof( CONTEC_CPSSSI_LIB_VERSION ) /sizeof( unsigned char );
+	memcpy(libVer, CONTEC_CPSSSI_LIB_VERSION, len);
+
+	return SSI_ERR_SUCCESS;
+
+}
 
 /**
 	@~English
@@ -1073,3 +1109,56 @@ unsigned long ContecCpsSsiClearCalibrationData( short Id, int iClear )
 
 }
 
+/* Direct Input / Output (Debug) */
+
+/**
+	@~English
+	@brief SSI Library the register of command address read data.(1byte)
+	@param Id : Device ID
+	@param addr : Address
+	@param value : Values
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのCOMMANDアドレスレジスタを読み出す関数。(1byte)
+	@param Id : デバイスID
+	@param addr : アドレス
+	@param value : 値
+	@return 成功: SSI_ERR_SUCCESS
+**/
+unsigned long ContecCpsSsiCommandInp( short Id, unsigned long addr, unsigned char *value )
+{
+
+	struct cpsssi_direct_command_arg arg;
+
+	arg.addr = addr;
+	ioctl( Id, IOCTL_CPSSSI_DIRECT_COMMAND_INPUT, arg );
+	*value = (unsigned char)arg.val;
+
+	return SSI_ERR_SUCCESS;
+}
+
+
+/**
+	@~English
+	@brief SSI Library the register of command address write data.(1byte)
+	@param Id : Device ID
+	@param addr : Address
+	@param value : Values
+	@return Success: SSI_ERR_SUCCESS
+	@~Japanese
+	@brief デバイスのCOMMANDアドレスレジスタへ書き出す関数。(1byte)
+	@param Id : デバイスID
+	@param addr : アドレス
+	@param value : 値
+	@return 成功: SSI_ERR_SUCCESS
+**/
+unsigned long ContecCpsSsiCommandOutp( short Id, unsigned long addr, unsigned char value )
+{
+	struct cpsssi_direct_command_arg arg;
+
+	arg.addr = addr;
+	arg.val = (unsigned long)value;
+	ioctl( Id, IOCTL_CPSSSI_DIRECT_COMMAND_OUTPUT, arg );
+
+	return 	SSI_ERR_SUCCESS;
+}

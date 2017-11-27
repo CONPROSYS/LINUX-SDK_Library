@@ -1,5 +1,8 @@
 #include "cps_def.h"
 
+#define DIO_POWERSUPPLY_EXTERNAL	0	///< 外部電源
+#define DIO_POWERSUPPLY_INTERNAL	1	///< 内部電源
+
 #define DIO_ERR_SUCCESS		0
 #define DIO_ERR_INI_RESOURCE	1
 #define DIO_ERR_INI_INTERRUPT	2
@@ -23,6 +26,11 @@
 #define DIO_ERR_DLL_DIRECTION		10500
 
 #define DIOM_INTERRUPT	0x1300
+
+#define DIO_INT_NONE	0
+#define DIO_INT_RISE	1
+#define DIO_INT_FALL	2
+
 
 /****  Structure ****/
 typedef struct __contec_cps_dio_int_callback_data__

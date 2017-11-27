@@ -114,6 +114,7 @@ extern unsigned long ContecCpsAioGetErrorStrings( unsigned long code, char *Str 
 extern unsigned long ContecCpsAioQueryDeviceName( short Id, char *DeviceName, char *Device );
 extern unsigned long ContecCpsAioGetAiResolution( short Id, unsigned short *AiResolution );
 extern unsigned long ContecCpsAioGetAoResolution( short Id, unsigned short *AoResolution );
+extern unsigned long ContecCpsAioGetVersion( short Id , unsigned char libVer[] , unsigned char drvVer[] );
 
 /**** Analog Input Functions ****/
 extern unsigned long ContecCpsAioSetAiChannels( short Id, short AiChannels );
@@ -159,7 +160,30 @@ extern unsigned long ContecCpsAioClearAoCalibrationData( short Id, int iClear );
 /**** Event Controller Functions ****/
 extern unsigned long ContecCpsAioSetEcuSignal( short Id, unsigned short dest, unsigned short src );
 
+// Direct Input / Output Functions(Debug)
+extern unsigned long ContecCpsAioInp( short Id, unsigned long addr, unsigned char *value );
+extern unsigned long ContecCpsAioInpW( short Id, unsigned long addr, unsigned short *value );
+extern unsigned long ContecCpsAioInpD( short Id, unsigned long addr, unsigned long *value );
 
+extern unsigned long ContecCpsAioOutp( short Id, unsigned long addr, unsigned char value );
+extern unsigned long ContecCpsAioOutpW( short Id, unsigned long addr, unsigned short value );
+extern unsigned long ContecCpsAioOutpD( short Id, unsigned long addr, unsigned long value );
+
+extern unsigned long ContecCpsAioEcuInp( short Id, unsigned long addr, unsigned char *value );
+extern unsigned long ContecCpsAioEcuInpW( short Id, unsigned long addr, unsigned short *value );
+extern unsigned long ContecCpsAioEcuInpD( short Id, unsigned long addr, unsigned long *value );
+
+extern unsigned long ContecCpsAioEcuOutp( short Id, unsigned long addr, unsigned char value );
+extern unsigned long ContecCpsAioEcuOutpW( short Id, unsigned long addr, unsigned short value );
+extern unsigned long ContecCpsAioEcuOutpD( short Id, unsigned long addr, unsigned long value );
+
+extern unsigned long ContecCpsAioCommandInp( short Id, unsigned long addr, unsigned char *value );
+extern unsigned long ContecCpsAioCommandInpW( short Id, unsigned long addr, unsigned short *value );
+extern unsigned long ContecCpsAioCommandInpD( short Id, unsigned long addr, unsigned long *value );
+
+extern unsigned long ContecCpsAioCommandOutp( short Id, unsigned long addr, unsigned char value );
+extern unsigned long ContecCpsAioCommandOutpW( short Id, unsigned long addr, unsigned short value );
+extern unsigned long ContecCpsAioCommandOutpD( short Id, unsigned long addr, unsigned long value );
 
 
 #endif

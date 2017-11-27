@@ -32,6 +32,25 @@
  #include "libcpsdio.h"
 #endif
 
+#define CONTEC_CPSDIO_LIB_VERSION	"1.0.4"
+
+/***
+ @~English
+ @name DebugPrint macro
+ @~Japanese
+ @name デバッグ用表示マクロ
+***/
+/// @{
+
+#if 0
+#define DEBUG_LIB_CPSDIO_INTERRUPT_CHECK(fmt...)	printf(fmt)
+#else
+#define DEBUG_LIB_CPSDIO_INTERRUPT_CHECK(fmt...)	do { } while (0)
+#endif
+
+/// @}
+///
+
 
 typedef struct __contec_cps_dio_int_callback__
 {
@@ -52,6 +71,7 @@ CONTEC_CPS_DIO_INT_CALLBACK_LIST contec_cps_dio_cb_list[CPS_DEVICE_MAX_NUM];
 void _contec_signal_proc( int signo )
 {
 	int cnt;
+	DEBUG_LIB_CPSDIO_INTERRUPT_CHECK("------ signal_proc: signo=%u\n", signo);
 	if( signo == SIGUSR2 ){
 		for( cnt = 0; cnt < CPS_DEVICE_MAX_NUM ; cnt ++){
 			if( contec_cps_dio_cb_list[cnt].func != (PCONTEC_CPS_DIO_INT_CALLBACK)NULL ){
@@ -85,6 +105,9 @@ unsigned long ContecCpsDioInit( char *DeviceName, short *Id )
 {
 	// open
 	char Name[32];
+
+
+	memset(&contec_cps_dio_cb_list[0], 0, sizeof(contec_cps_dio_cb_list));
 
 	strcpy(Name, "/dev/");
 	strcat(Name, DeviceName);
@@ -181,6 +204,41 @@ unsigned long ContecCpsDioGetMaxPort( short Id, short *InPortNum, short *OutPort
 	*OutPortNum = (short)( arg.val );
 
 	return DIO_ERR_SUCCESS;
+}
+
+/**
+	@~English
+	@brief DIO Library gets driver and library version.
+	@param Id : Device ID
+	@param libVer : library version
+	@param drvVer : driver version
+	@return Success: DIO_ERR_SUCCESS
+	@~Japanese
+	@brief デジタルデバイスのドライバとライブラリのバージョン文字列を取得します。
+	@param Id : デバイスID
+	@param libVer : ライブラリバージョン
+	@param drvVer : ドライババージョン
+	@note Ver.1.0.5 Change from cpsaio_ioctl_arg to cpsaio_ioctl_string_arg.
+	@return 成功: DIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsDioGetVersion( short Id , unsigned char libVer[] , unsigned char drvVer[] )
+{
+
+	struct cpsdio_ioctl_string_arg	arg;
+	int len;
+
+
+	ioctl( Id, IOCTL_CPSDIO_GET_DRIVER_VERSION, &arg );
+
+	len = sizeof( arg.str ) / sizeof( arg.str[0] );
+	memcpy(drvVer, arg.str, len);
+//	strcpy_s(drvVer, arg.str);
+
+	len = sizeof( CONTEC_CPSDIO_LIB_VERSION ) /sizeof( unsigned char );
+	memcpy(libVer, CONTEC_CPSDIO_LIB_VERSION, len);
+
+	return DIO_ERR_SUCCESS;
+
 }
 
 
@@ -660,6 +718,10 @@ unsigned long ContecCpsDioNotifyInterrupt( short Id, short BitNum, short Logic )
 
 	ioctl( Id, IOCTL_CPSDIO_SET_CALLBACK_PROCESS, &arg );
 
+
+	DEBUG_LIB_CPSDIO_INTERRUPT_CHECK("------ signal: SIGUSR2\n");
+	/*** signal ***/
+	signal( SIGUSR2, _contec_signal_proc );
 	return DIO_ERR_SUCCESS;
 }
 
@@ -681,8 +743,13 @@ unsigned long ContecCpsDioSetInterruptCallBackProc( short Id, PCONTEC_CPS_DIO_IN
 {
 	struct cpsdio_ioctl_arg	arg;
 
-	/*** signal ***/
-	signal( SIGUSR2, _contec_signal_proc );
+// debug test start
+	contec_cps_dio_cb_list[0].func        = cb;
+	contec_cps_dio_cb_list[0].data.id     = Id;
+	contec_cps_dio_cb_list[0].data.wParam = 0;
+	contec_cps_dio_cb_list[0].data.lParam = 0;
+	contec_cps_dio_cb_list[0].data.Param  = Param;
+// debug test end
 
 	return DIO_ERR_SUCCESS;
 }

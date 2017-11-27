@@ -2,11 +2,17 @@ subdirall = cps-drivers SerialFunc libconexio libCpsEeprom
 ifeq ($(CPS_SDK_PRODUCT_TYPE),CPS-MCS341-DSX)
   subdirs = cps-drivers 
 endif
+ifeq ($(CPS_SDK_PRODUCT_TYPE),CPS-MCS341G-DSX)
+  subdirs = cps-drivers 
+endif
 ifeq ($(CPS_SDK_PRODUCT_TYPE),CPS-MC341Q-ADSCX)
   subdirs = SerialFunc libconexio
 endif
+ifeq ($(CPS_SDK_PRODUCT_TYPE),CPS-MCS341Q-DSX)
+  subdirs = cps-drivers 
+endif
 subdirs += libCpsEeprom
-MAKE=make --no-print-directory -e
+MAKE=make --no-print-directory 
 
 all:	
 	@for subdir in $(subdirs) ; do \
