@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdio.h>
 
 #include "cpsdio.h"
 
@@ -32,7 +33,7 @@
  #include "libcpsdio.h"
 #endif
 
-#define CONTEC_CPSDIO_LIB_VERSION	"1.0.4"
+#define CONTEC_CPSDIO_LIB_VERSION	"1.0.6"
 
 /***
  @~English
@@ -164,16 +165,46 @@ unsigned long ContecCpsDioGetErrorStrings( unsigned long code, char *Str )
 	@param Device : Device Name ( CPS-DIO-0808L , etc )
 	@return Success: DIO_ERR_SUCCESS
 	@~Japanese
-	@brief クエリデバイス関数（未実装）
+	@brief クエリデバイス関数
 	@param Id : デバイスID
 	@param DeviceName : デバイスノード名 ( cpsdioX )
 	@param Device : デバイス型式名 (  CPS-DIO-0808Lなど )
 	@return 成功: DIO_ERR_SUCCESS
 **/
-unsigned long ContecCpsDioQueryDeviceName( short Id, char *DeviceName, char *Device )
+unsigned long ContecCpsDioQueryDeviceName( short Index, char *DeviceName, char *Device )
 {
+	struct cpsdio_ioctl_string_arg	arg;
+	int len;
 
-	return DIO_ERR_SUCCESS;
+	char tmpDevName[16];
+	char baseDeviceName[16]="cpsdio";
+	char strNum[2]={0};
+	int findNum=0, cnt, ret;
+
+	short tmpId = 0;
+
+	for(cnt = 0;cnt < CPS_DEVICE_MAX_NUM ; cnt ++ ){
+		sprintf(tmpDevName,"%s%x",baseDeviceName, cnt);
+		ret = ContecCpsDioInit(tmpDevName, &tmpId);
+
+		if( ret == 0 ){
+			ioctl(tmpId, IOCTL_CPSDIO_GET_DEVICE_NAME, &arg);
+			ContecCpsDioExit(tmpId);
+
+			if(findNum == Index){
+				sprintf(DeviceName,"%s",tmpDevName);
+				sprintf(Device,"%s", arg.str);
+				return DIO_ERR_SUCCESS;
+			}else{
+				findNum ++;
+			}
+			memset(&tmpDevName,0x00, 16);
+			memset(&arg.str, 0x00, sizeof(arg.str)/sizeof(arg.str[0]));
+
+		}
+	}
+
+	return DIO_ERR_INFO_NOT_FIND_DEVICE;
 }
 
 /**

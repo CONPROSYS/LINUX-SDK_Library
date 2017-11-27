@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <math.h>
+#include <stdio.h>
 
 #include "cpsssi.h"
 
@@ -33,7 +34,7 @@
  #include "libcpsssi.h"
 #endif
 
-#define CONTEC_CPSSSI_LIB_VERSION	"1.0.5"
+#define CONTEC_CPSSSI_LIB_VERSION	"1.0.6"
 
 typedef struct __contec_cps_ssi_int_callback__
 {
@@ -157,10 +158,40 @@ unsigned long ContecCpsSsiGetErrorStrings( unsigned long code, char *Str )
 	@param Device : デバイス型式名 ( CPS-SSI-4Pなど )
 	@return 成功: SSI_ERR_SUCCESS
 **/
-unsigned long ContecCpsSsiQueryDeviceName( short Id, char *DeviceName, char *Device )
+unsigned long ContecCpsSsiQueryDeviceName( short Index, char *DeviceName, char *Device )
 {
+	struct cpsssi_ioctl_string_arg	arg;
+	int len;
 
-	return SSI_ERR_SUCCESS;
+	char tmpDevName[16];
+	char baseDeviceName[16]="cpsssi";
+	char strNum[2]={0};
+	int findNum=0, cnt, ret;
+
+	short tmpId = 0;
+
+	for(cnt = 0;cnt < CPS_DEVICE_MAX_NUM ; cnt ++ ){
+		sprintf(tmpDevName,"%s%x",baseDeviceName, cnt);
+		ret = ContecCpsSsiInit(tmpDevName, &tmpId);
+
+		if( ret == 0 ){
+			ioctl(tmpId, IOCTL_CPSSSI_GET_DEVICE_NAME, &arg);
+			ContecCpsSsiExit(tmpId);
+
+			if(findNum == Index){
+				sprintf(DeviceName,"%s",tmpDevName);
+				sprintf(Device,"%s", arg.str);
+				return SSI_ERR_SUCCESS;
+			}else{
+				findNum ++;
+			}
+			memset(&tmpDevName,0x00, 16);
+			memset(&arg.str, 0x00, sizeof(arg.str)/sizeof(arg.str[0]));
+
+		}
+	}
+
+	return SSI_ERR_INFO_NOT_FIND_DEVICE;
 }
 
 /**

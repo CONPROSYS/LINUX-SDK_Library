@@ -49,7 +49,7 @@ typedef void (*PCONTEC_CPS_DIO_INT_CALLBACK)(short, short, long, long, void *);
 extern unsigned long ContecCpsDioInit( char *DeviceName, short *Id );
 extern unsigned long ContecCpsDioExit( short Id );
 extern unsigned long ContecCpsDioGetErrorStrings( unsigned long code, char *Str );
-extern unsigned long ContecCpsDioQueryDeviceName( short Id, char *DeviceName, char *Device );
+extern unsigned long ContecCpsDioQueryDeviceName( short Index, char *DeviceName, char *Device );
 extern unsigned long ContecCpsDioGetMaxPort( short Id, short *InPortNum, short *OutPortNum );
 
 /**** Input Functions ****/

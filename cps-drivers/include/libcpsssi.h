@@ -49,7 +49,7 @@ typedef void (*PCONTEC_CPS_SSI_INT_CALLBACK)(short, short, long, long, void *);
 extern unsigned long ContecCpsSsiInit( char *DeviceName, short *Id );
 extern unsigned long ContecCpsSsiExit( short Id );
 extern unsigned long ContecCpsSsiGetErrorStrings( unsigned long code, char *Str );
-extern unsigned long ContecCpsSsiQueryDeviceName( short Id, char *DeviceName, char *Device );
+extern unsigned long ContecCpsSsiQueryDeviceName( short Index, char *DeviceName, char *Device );
 
 /**** Sensor Input Functions ****/
 extern unsigned long ContecCpsSsiSetChannel( short Id, short SsiChannel, unsigned int iWire, unsigned int iJpt );

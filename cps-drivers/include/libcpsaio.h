@@ -111,7 +111,7 @@ typedef void (*PCONTEC_CPS_AIO_INT_CALLBACK)(short, short, long, long, void *);
 extern unsigned long ContecCpsAioInit( char *DeviceName, short *Id );
 extern unsigned long ContecCpsAioExit( short Id );
 extern unsigned long ContecCpsAioGetErrorStrings( unsigned long code, char *Str );
-extern unsigned long ContecCpsAioQueryDeviceName( short Id, char *DeviceName, char *Device );
+extern unsigned long ContecCpsAioQueryDeviceName( short Index, char *DeviceName, char *Device );
 extern unsigned long ContecCpsAioGetAiResolution( short Id, unsigned short *AiResolution );
 extern unsigned long ContecCpsAioGetAoResolution( short Id, unsigned short *AoResolution );
 extern unsigned long ContecCpsAioGetVersion( short Id , unsigned char libVer[] , unsigned char drvVer[] );

@@ -39,7 +39,7 @@
  #include "libcpsaio.h"
 #endif
 
-#define CONTEC_CPSAIO_LIB_VERSION	"1.0.8"
+#define CONTEC_CPSAIO_LIB_VERSION	"1.0.9"
 
 typedef struct __contec_cps_aio_int_callback__
 {
@@ -231,17 +231,46 @@ unsigned long ContecCpsAioGetErrorStrings( unsigned long code, char *Str )
 	@param Device : Device Name ( CPS-AI-1608LI , etc )
 	@return Success: AIO_ERR_SUCCESS
 	@~Japanese
-	@brief クエリデバイス関数（未実装）
+	@brief クエリデバイス関数
 	@param Index : デバイスID
 	@param DeviceName : デバイスノード名 ( cpsaioX )
-	@param Device : デバイス型式名 (  CPS-AIO-0808Lなど )
+	@param Device : デバイス型式名 (  CPS-AIO-1608LIなど )
 	@return 成功: AIO_ERR_SUCCESS
 **/
 unsigned long ContecCpsAioQueryDeviceName( short Index, char *DeviceName, char *Device )
 {
+	struct cpsaio_ioctl_string_arg	arg;
+	int len;
 
+	char tmpDevName[16];
+	char baseDeviceName[16]="cpsaio";
+	char strNum[2]={0};
+	int findNum=0, cnt, ret;
+
+	short tmpId = 0;
+
+	for(cnt = 0;cnt < CPS_DEVICE_MAX_NUM ; cnt ++ ){
+		sprintf(tmpDevName,"%s%x",baseDeviceName, cnt);
+		ret = ContecCpsAioInit(tmpDevName, &tmpId);
+
+		if( ret == 0 ){
+			ioctl(tmpId, IOCTL_CPSAIO_GET_DEVICE_NAME, &arg);
+			ContecCpsAioExit(tmpId);
+
+			if(findNum == Index){
+				sprintf(DeviceName,"%s",tmpDevName);
+				sprintf(Device,"%s", arg.str);
+				return AIO_ERR_SUCCESS;
+			}else{
+				findNum ++;
+			}
+			memset(&tmpDevName,0x00, 16);
+			memset(&arg.str, 0x00, sizeof(arg.str)/sizeof(arg.str[0]));
+
+		}
+	}
 	
-	return AIO_ERR_SUCCESS;
+	return AIO_ERR_INFO_NOT_FIND_DEVICE;
 }
 
 //---- Ai/Ao Get Resolution function ------------------
