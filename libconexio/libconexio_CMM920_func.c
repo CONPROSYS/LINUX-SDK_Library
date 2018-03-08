@@ -28,6 +28,8 @@
                       (2) Fixed sequence number added MHR.
                       (3) Fixed change value name , from panid to shortAddr.
                       (4) Fixed change value name,  from send_size to size.
+    update 2016.07.20 (1) Fixed Received Data divided into two.
+	update 2016.07.29 (1) Added Received Data Timeout Error.
 ***/
 
 #include <stdio.h>
@@ -39,10 +41,23 @@
 #include <sys/ioctl.h>
 #include <time.h>
 #include <sys/time.h>
+#include <syslog.h>
 #include "libconexio_CMM920.h"
 #include "serialfunc.h"
 
-#if 1
+#define LIB_CONNEXIO_CMM920_VERSION "1.1.4"
+#define LIB_CONNEXIO_SYSLOG_NAME "libconnexio_CMM920"
+
+
+/*!
+ @~English
+ @name DebugPrint macro
+ @~Japanese
+ @name デバッグ用表示マクロ
+*/
+/// @{
+
+#if 0
 #define DbgPrint(fmt...)	printf(fmt)
 #else
 #define DbgPrint(fmt...)	do { } while (0)
@@ -66,16 +81,25 @@
 #define DbgRecvTelegramParam(fmt...)	do { } while (0)
 #endif
 
-int iWait;
+/// @}
+
+int iWait;		// ウェイト時間
 
 
 static int global_seq_num = 0;
 static int iPort;
 static short global_getLastError = 0;
 
-/***
-	@function _conexio_cmm920_check_read_or_write
-***/
+/**
+	@~English
+	@brief flag checks function
+	@param iFlag : Flags 　( CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE )
+	@return Success: 0 , Faild : otherwise 0-
+	@~Japanese
+	@brief フラグ確認用関数
+	@param iFlag : フラグ　( CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE )
+	@return 成功:  0 失敗 : 0以外
+**/
 static int _conexio_cmm920_check_read_or_write( int iFlag )
 {
 	switch( iFlag ){
@@ -87,18 +111,49 @@ static int _conexio_cmm920_check_read_or_write( int iFlag )
 	}
 }
 
+
+/**
+	@~English
+	@brief Change Hex to Bcd Dec
+	@param hex : value
+	@return Success: Bcd Dec-
+	@~Japanese
+	@brief 16進数から 10進のBCDコードに変換する関数
+	@param hex : 16進数
+	@return 成功:  10進数BCDコード
+**/
 BYTE _calc_Hex2Bcd( BYTE hex ){
 
 	return ( ( hex / 16 ) * 10 + ( hex % 16 ) );
 
 }
 
+/**
+	@~English
+	@brief Change Bcd Decimal to Hex
+	@param bcd : bcd Decimal
+	@return Success: Hex
+	@~Japanese
+	@brief 10進のBCDコードから16進数に変換する関数
+	@param bcd :　10進数BCDコード
+	@return 成功:  16進数
+**/
 BYTE _calc_Bcd2Hex( BYTE bcd ){
 
 	return ( ( bcd / 10 ) * 16 + ( bcd % 10 ) );
 
 }
 
+/**
+	@~English
+	@brief Change dBm to Hex
+	@param dBm : decibel per milisecond
+	@return Success: Hex
+	@~Japanese
+	@brief dBmから16進数に変換する関数
+	@param dBm :　1ミリ秒中のデシベル
+	@return 成功:  16進数
+**/
 BYTE _conexio_cmm920_dBm2Hex( int dBm ){
 	dBm = dBm * (-1);
 	if( dBm >= 100 ){
@@ -107,6 +162,16 @@ BYTE _conexio_cmm920_dBm2Hex( int dBm ){
 	return _calc_Bcd2Hex( (BYTE)dBm );
 }
 
+/**
+	@~English
+	@brief Change Hex　to dBm
+	@param hex : value
+	@return Success: dbm
+	@~Japanese
+	@brief 16進数からdBmに変換する関数
+	@param hex :　16進数
+	@return 成功:  dBm
+**/
 int _conexio_cmm920_Hex2dBm( BYTE hex ){
 	int dBm;
 	dBm = (int) _calc_Hex2Bcd( hex );
@@ -118,6 +183,66 @@ int _conexio_cmm920_Hex2dBm( BYTE hex ){
 	return dBm;
 }
 
+
+/**
+	@~English
+	@brief 920 Module syslog
+	@param msg :
+	@~Japanese
+	@brief 920MHzモジュール syslog
+	@param msg :
+**/
+void _conexio_cmm920_output_syslog( int level, char *msg )
+{
+//	openlog(LIB_CONNEXIO_SYSLOG_NAME, LOG_PERROR|LOG_PID,LOG_USER);
+	openlog(LIB_CONNEXIO_SYSLOG_NAME, LOG_PERROR|LOG_PID,LOG_LOCAL0);
+	syslog(level,"%s\n",msg);
+	closelog();
+}
+
+/**
+	@~English
+	@brief 920 Module syslog
+	@param msg :
+	@~Japanese
+	@brief 920MHzモジュール syslog info
+	@param msg :
+**/
+void _conexio_cmm920_output_syslog_info( char *msg )
+{
+	_conexio_cmm920_output_syslog(LOG_INFO, msg);
+}
+
+/**
+	@~English
+	@brief 920 Module syslog
+	@param msg :
+	@~Japanese
+	@brief 920MHzモジュール syslog info
+	@param msg :
+**/
+void _conexio_cmm920_output_syslog_notice( char *msg )
+{
+	_conexio_cmm920_output_syslog(LOG_NOTICE, msg);
+}
+
+
+/**
+	@~English
+	@brief 920 Module send and Ack receive
+	@param Data : Send Data
+	@param size : Send Size
+	@param mode : CMM920  mode
+	@param command : CMM920 Command
+	@return Success : 0 , Failed : From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief 920MHzモジュールに送信とAck受信を行う関数
+	@param Data : 送信データ
+	@param size : 送信サイズ
+	@param mode : CMM920 モード
+	@param command : CMM920 コマンド
+	@return 成功:  0 失敗 :  送信 エラー: -16～-31,　受信エラー : -32～
+**/
 int _conexio_cmm920_send_recv( BYTE Data[], int size ,int mode, int command ){
 	int iRet, send_size = size;
 	int offset = 0; // 2016.01.15 (1) add
@@ -147,13 +272,23 @@ int _conexio_cmm920_send_recv( BYTE Data[], int size ,int mode, int command ){
 	return iRet;
 }
 
-// CONEXIO 920MHz Initialize
-int conexio_cmm920_init(char *PortName){
+/**
+	@~English
+	@brief CONEXIO 920MHz Initialize
+	@param PortName : Serial port name
+	@return Success : 0 , Failed : otherwise 0
+	@~Japanese
+	@brief CONEXIO 920MHzモジュールの初期化
+	@param PortName : シリアル通信ポート名
+	@return 成功:  0 失敗 :  0以外
+**/
+int conexio_cmm920_init(char* PortName){
 
 	int iBaudrate = 115200;
 	int iLength = 8;
 	int iStop = 1;
 	int iParity = 0;
+	int iRtsControl = 1; // RTS/CTS ON
 
 	iPort = Serial_PortOpen_Full(
 		PortName,
@@ -161,8 +296,9 @@ int conexio_cmm920_init(char *PortName){
 		iLength,
 		iStop,
 		iParity,
-		100 ,
-		0
+		10,
+		0,
+		iRtsControl
 	);
 
 	if(iPort < 0){
@@ -174,8 +310,15 @@ int conexio_cmm920_init(char *PortName){
 	return 0;
 }
 
-//Exit処理
-int conexio_cmm920_exit()
+/**
+	@~English
+	@brief CONEXIO 920MHz Exit
+	@return Success : 0 , Failed : otherwise 0
+	@~Japanese
+	@brief CONEXIO 920MHzモジュールの終了
+	@return 成功:  0 失敗 :  0以外
+**/
+int conexio_cmm920_exit(void)
 {
 	if(iPort == 0) return 0;
 
@@ -184,15 +327,28 @@ int conexio_cmm920_exit()
 	return 0;
 }
 
-// GetLastError
-
-int conexio_cmm920_get_last_error(){
+/**
+	@~English
+	@brief CONEXIO 920MHz GetLastError
+	@return Last Error Number
+	@~Japanese
+	@brief CONEXIO 920MHzの GetLastError
+	@return 最後のエラー番号
+**/
+int conexio_cmm920_get_last_error(void){
 
 	return global_getLastError;
 }
 
-// reset
-int conexio_cmm920_reset()
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Reset
+	@return Success : 0 , Failed : From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の リセット
+	@return 成功:  0 失敗 :  送信 エラー: -16～-31,　受信エラー : -32～
+**/
+int conexio_cmm920_reset(void)
 {
 	int iRet;
 	DbgPrint("conexio_cmm920_reset A\n");
@@ -216,6 +372,18 @@ int conexio_cmm920_reset()
 }
 
 // mode
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Mode function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param code : mode
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の モード関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param code : mode
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_mode(BYTE isWrite , int *code)
 {
 	int iRet;
@@ -273,6 +441,22 @@ int conexio_cmm920_mode(BYTE isWrite , int *code)
 }
 
 // Address
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Address function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param panId : PAN ID
+	@param Addr : Long Address
+	@param shortAddr : Short address
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の アドレス関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param panId : PAN ID
+	@param Addr : ロングアドレス
+	@param shortAddr : ショートアドレス
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_address(BYTE isWrite, unsigned short *panId, BYTE Addr[], unsigned short *shortAddr )
 {
 	int iRet;
@@ -332,6 +516,34 @@ int conexio_cmm920_address(BYTE isWrite, unsigned short *panId, BYTE Addr[], uns
 }
 
 // Wireless ( bitrate ***kbps, channel **ch, Power **mW )
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Wireless function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param bitrate : bit rate
+	@param channel : channel
+	@param power : send power
+	@param sendSenceLvl : send sence level
+	@param recvSenceLvl : receive sence level
+	@param sendSenceTim : send sence retry time
+	@param sendSenceNum : send sence retry number
+	@param ackRetryNum : acknowledge retry number
+	@param ackWaitTim : acknowledge retry time
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の 無線関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param bitrate : ビットレート
+	@param channel : チャネル
+	@param power : 送信出力
+	@param sendSenceLvl : 送信センスレベル
+	@param recvSenceLvl : 受信センスレベル
+	@param sendSenceTim : 送信センス再送時間
+	@param sendSenceNum : 送信センス再送回数
+	@param ackRetryNum : ACKリトライ回数
+	@param ackWaitTim : ACK待ち時間
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_wireless(BYTE isWrite, BYTE *bitrate, BYTE *channel, BYTE *power, char *sendSenceLvl,
 	 char *recvSenceLvl, unsigned short *sendSenceTim, BYTE *sendSenceNum, BYTE *ackRetryNum, unsigned short *ackWaitTim)
 {
@@ -413,6 +625,18 @@ int conexio_cmm920_wireless(BYTE isWrite, BYTE *bitrate, BYTE *channel, BYTE *po
 }
 
 // timer 
+/**
+	@~English
+	@brief CONEXIO 920MHz Module timer function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param tim : time ( msec )
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の 時間関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param tim : 時間 (msec)
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_timer( BYTE isWrite, unsigned short *tim )
 {
 
@@ -462,6 +686,20 @@ int conexio_cmm920_timer( BYTE isWrite, unsigned short *tim )
 }
 
 // Auto Ack Frame
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Auto Acknowledge Frame function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param phr :
+	@param fc_upper :
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の オートACKフレーム 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param phr :
+	@param fc_upper :
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_auto_ack_frame( BYTE isWrite, unsigned short *phr, unsigned char *fc_upper )
 {
 
@@ -513,6 +751,18 @@ int conexio_cmm920_auto_ack_frame( BYTE isWrite, unsigned short *phr, unsigned c
 }
 
 // Antenna mode (Internal or External )
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Antenna mode function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param antennaMode :
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の アンテナモード 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param antennaMode :
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_antenna( BYTE isWrite, BYTE *antennaMode )
 {
 	int iRet;
@@ -570,6 +820,18 @@ int conexio_cmm920_antenna( BYTE isWrite, BYTE *antennaMode )
 }
 
 // Version Read
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Version Read function
+	@param ver : module version
+	@param rev : module revision
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の バージョン読み込み 関数
+	@param ver : モジュールのバージョン
+	@param rev : モジュールのリビジョン
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_version(int *ver, int *rev)
 {
 	int iRet;
@@ -608,6 +870,20 @@ int conexio_cmm920_version(int *ver, int *rev)
 }
 
 // LSI set function ( basic )
+/**
+	@~English
+	@brief CONEXIO 920MHz Module LSI function
+	@param lsi_addr : Address of LSI
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param value : value
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の LSI 関数
+	@param lsi_addr : LSIのアドレス
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param value : 値
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi(unsigned long lsi_addr, int isWrite, unsigned short *value)
 {
 	int iRet;
@@ -660,6 +936,18 @@ int conexio_cmm920_lsi(unsigned long lsi_addr, int isWrite, unsigned short *valu
 // Lsi function ( extensions )
 
 // Data Preemble Bit Length
+/**
+	@~English
+	@brief CONEXIO 920MHz Module preamble bit length function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param length : data length
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のプリアンブルビットのデータ長 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param length : データ長
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi_data_preamble_bit_len(int isWrite, BYTE length)
 {
 	unsigned long lsi_addr;
@@ -687,6 +975,18 @@ int conexio_cmm920_lsi_data_preamble_bit_len(int isWrite, BYTE length)
 }
 
 // Data Whitening < Enable / Disable >
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data whitening function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.Enable 0.Disable
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のデータホワイトニング 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.可能  0. 不可能
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi_data_whitening( int isWrite, BYTE isEnable )
 {
 	unsigned long lsi_addr;
@@ -715,6 +1015,18 @@ int conexio_cmm920_lsi_data_whitening( int isWrite, BYTE isEnable )
 }
 
 // Diversity <Enable / Disable>
+/**
+	@~English
+	@brief CONEXIO 920MHz Module diversity enable function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.Enable 0.Disable
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のダイバーシティ 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.可能  0. 不可能
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi_diversity_enable( int isWrite, BYTE isEnable )
 {
 	unsigned long lsi_addr;
@@ -744,6 +1056,18 @@ int conexio_cmm920_lsi_diversity_enable( int isWrite, BYTE isEnable )
 
 
 // MHR <Enable / Disable>
+/**
+	@~English
+	@brief CONEXIO 920MHz Module MHR function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.Enable 0.Disable
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のMHR 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.可能  0. 不可能
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi_mhr_mode( int isWrite, BYTE isEnable )
 {
 	unsigned long lsi_addr;
@@ -772,6 +1096,18 @@ int conexio_cmm920_lsi_mhr_mode( int isWrite, BYTE isEnable )
 }
 
 // CRC CALC INVERSE <Enable / Disable>
+/**
+	@~English
+	@brief CONEXIO 920MHz Module CRC Value calculate INVERSE function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.Enable 0.Disable
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のCRC値計算 反転 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.可能  0. 不可能
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi_crc_calc_inverse( int isWrite, BYTE isEnable )
 {
 	unsigned long lsi_addr;
@@ -799,6 +1135,18 @@ int conexio_cmm920_lsi_crc_calc_inverse( int isWrite, BYTE isEnable )
 	return iRet;
 }
 
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Short PAN ID Filter function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.Enable 0.Disable
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のShort PAN ID フィルタ 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.可能  0. 不可能
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi_s_panid_filter( int isWrite, BYTE isEnable )
 {
 	unsigned long lsi_addr;
@@ -825,6 +1173,19 @@ int conexio_cmm920_lsi_s_panid_filter( int isWrite, BYTE isEnable )
 
 	return iRet;
 }
+
+/**
+	@~English
+	@brief CONEXIO 920MHz Module D PAN ID Filter function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.Enable 0.Disable
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のD PAN ID フィルタ 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.可能  0. 不可能
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi_d_panid_filter( int isWrite, BYTE isEnable )
 {
 	unsigned long lsi_addr;
@@ -851,6 +1212,19 @@ int conexio_cmm920_lsi_d_panid_filter( int isWrite, BYTE isEnable )
 
 	return iRet;
 }
+
+/**
+	@~English
+	@brief CONEXIO 920MHz Module D Address Filter function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.Enable 0.Disable
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のD Address ID フィルタ 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param isEnable : 1.可能  0. 不可能
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi_d_address_filter( int isWrite, BYTE isEnable )
 {
 	unsigned long lsi_addr;
@@ -877,6 +1251,21 @@ int conexio_cmm920_lsi_d_address_filter( int isWrite, BYTE isEnable )
 
 	return iRet;
 }
+
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data sfd function
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param address : address
+	@param sfd_no :
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のData sfd 関数
+	@param isWrite : CONEXIO_CMM920_SET_READING_READ or CONEXIO_CMM920_SET_READING_WRITE
+	@param address : アドレス
+	@param sfd_no :
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_lsi_data_sfd( int isWrite, unsigned short address, BYTE sfd_no )
 {
 	unsigned long lsi_addr;
@@ -902,13 +1291,30 @@ int conexio_cmm920_lsi_data_sfd( int isWrite, unsigned short address, BYTE sfd_n
 // End Lsi Functions < Extension >
 
 //int conexio_cmm920_data_send_single(BYTE buf[], int size, int hop, int send_mode, BYTE r_buf[] ) //2016.01.11 (2)
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data send single hop function
+	@param buf : send data buffer
+	@param size : send data size
+	@param send_mode : send mode
+	@param r_buf : receive buffer (option)
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のシングルホップ用 データ送信 関数
+	@param buf : 送信データバッファ
+	@param size : 送信データサイズ
+	@param send_mode : 送信モード
+	@param r_buf : 受信バッファ (オプション)
+	@warning ANTENNA MODE 1は、TELEC認証されてないので注意
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_data_send_single(BYTE buf[], int size, int send_mode, BYTE r_buf[] )
 {
 	int iRet;
 	BYTE antenna_mode = 0;
 
 	if( antenna_mode == CONEXIO_CMM920_SET_ANTENNA_01 ){
-		printf("CATION : SETTING ANTENNA MODE 1 CANNOT SEND DATA.< TELEC VIOLATION >");
+		printf("WARNING : SETTING ANTENNA MODE 1 CANNOT SEND DATA.< TELEC VIOLATION >");
 		return 1;
 	}
 
@@ -922,6 +1328,30 @@ int conexio_cmm920_data_send_single(BYTE buf[], int size, int send_mode, BYTE r_
 	return iRet;
 }
 
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data send multi hop header function
+	@param buf : send data buffer
+	@param size : send data size
+	@param send_mode : send mode
+	@param dest_id : dest PAN ID
+	@param src_id : source PAN ID
+	@param dest_addr : Dest Address
+	@param src_addr : Source Addres
+	@param r_buf : receive buffer (option)
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のマルチホップヘッダ付き データ送信 関数
+	@param buf : 送信データバッファ
+	@param size : 送信データサイズ
+	@param send_mode : 送信モード
+	@param dest_id : 送信先PAN　ID
+	@param src_id : 送信元 PAN ID
+	@param dest_addr : 送信先アドレス
+	@param src_addr : 送信元アドレス
+	@param r_buf : 受信バッファ (オプション)
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_data_send_multi(BYTE buf[], int size, int send_mode, unsigned short dest_id, unsigned short src_id, long dest_addr, long src_addr, BYTE r_buf[])
 {
 	int iRet;
@@ -936,27 +1366,104 @@ int conexio_cmm920_data_send_multi(BYTE buf[], int size, int send_mode, unsigned
 	return iRet;
 }
 
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data receive function
+	@param buf : receive data buffer
+	@param size : receive data size
+	@param hop : hop mode
+	@param r_channel : receive channel
+	@param rx_pwr : receive power
+	@param crc_val: crc value
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のデータ受信 関数
+	@param buf : 受信データバッファ
+	@param size : 受信データサイズ
+	@param hop : ホップモード
+	@param r_channel : 受信チャネル
+	@param rx_pwr : 受信強度
+	@param crc_val: CRC値
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_data_recv(BYTE buf[], int *size, int hop, int *r_channel, int *rx_pwr, unsigned int *crc_val ){
 
 	return RecvTelegram(buf, size, hop , r_channel, rx_pwr, crc_val, NULL, NULL, NULL, NULL );
 }
 
-
-int conexio_cmm920_data_recv_single(BYTE buf[], int *size, int *r_channel, int *rx_pwr, unsigned int *crc_val ){
-
-	
-
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data receive of single hop function
+	@param buf : receive data buffer
+	@param size : receive data size
+	@param r_channel : receive channel
+	@param rx_pwr : receive power
+	@param crc_val: crc value
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のシングルホップ用データ受信 関数
+	@param buf : 受信データバッファ
+	@param size : 受信データサイズ
+	@param r_channel : 受信チャネル
+	@param rx_pwr : 受信強度
+	@param crc_val: CRC値
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
+int conexio_cmm920_data_recv_single(BYTE buf[], int *size, int *r_channel, int *rx_pwr, unsigned int *crc_val )
+{
 	return RecvTelegram(buf, size, CONEXIO_CMM920_HOP_SINGLE ,r_channel, rx_pwr, crc_val, NULL, NULL, NULL, NULL );
 }
 
-
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data receive with multi hop header function
+	@param buf : receive data buffer
+	@param size : receive data size
+	@param r_channel : receive channel
+	@param rx_pwr : receive power
+	@param crc_val: crc value
+	@param dest_id : dest PAN ID
+	@param src_id : source PAN ID
+	@param dest_addr : Dest Address
+	@param src_addr : Source Addres
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のマルチホップヘッダ付きデータ受信 関数
+	@param buf : 受信データバッファ
+	@param size : 受信データサイズ
+	@param r_channel : 受信チャネル
+	@param rx_pwr : 受信強度
+	@param crc_val: CRC値
+	@param dest_id : 送信先PAN　ID
+	@param src_id : 送信元 PAN ID
+	@param dest_addr : 送信先アドレス
+	@param src_addr : 送信元アドレス
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int conexio_cmm920_data_recv_multi(BYTE buf[], int *size, int *r_channel, int *rx_pwr, unsigned int *crc_val, unsigned short *dest_id, unsigned short *src_id, long *dest_addr, long *src_addr ){
 	return RecvTelegram(buf, size, CONEXIO_CMM920_HOP_MULTI , r_channel, rx_pwr, crc_val, dest_id, src_id, dest_addr, src_addr );
 }
 
 // 2016.01.11 (2) 
-/// 920MHz Send Run-mode Packet function
-
+// 920MHz Send Run-mode Packet function
+/**
+	@~English
+	@brief calculate multi hop header size function
+	@param dest_mode :
+	@param src_mode :
+	@param version :
+	@param panidcomp :
+	@param fc:
+	@return Success : MHR header size
+	@~Japanese
+	@brief マルチホップヘッダのヘッダサイズ演算 関数
+	@param dest_mode :
+	@param src_mode :
+	@param version :
+	@param panidcomp :
+	@param fc:
+	@return 成功:  MHRのヘッダサイズ
+**/
 int calcMHR(int dest_mode, int src_mode, int version, int panidcomp , unsigned short *fc)
 {
 	int size = 3; // 2016.01.15 (2) change
@@ -987,6 +1494,26 @@ int calcMHR(int dest_mode, int src_mode, int version, int panidcomp , unsigned s
 	return size;
 }
 
+/**
+	@~English
+	@brief Add multi hop header function
+	@param pktBuf : packet buffer
+	@param fc :
+	@param dest_id : dest PAN ID
+	@param src_id : source PAN ID
+	@param dest_addr : Dest Address
+	@param src_addr : Source Addres
+	@return Success : Data Offset
+	@~Japanese
+	@brief マルチホップヘッダ追加 関数
+	@param pktBuf : パケットバッファ
+	@param fc :
+	@param dest_id : 送信先PAN　ID
+	@param src_id : 送信元 PAN ID
+	@param dest_addr : 送信先アドレス
+	@param src_addr : 送信元アドレス
+	@return 成功:  データのオフセット
+**/
 int addMHR(BYTE pktBuf[] , unsigned short fc, unsigned short *dest_id, unsigned short *src_id, long *dest_addr, long *src_addr)
 {
 	unsigned int offset = 0;
@@ -1042,7 +1569,28 @@ int addMHR(BYTE pktBuf[] , unsigned short fc, unsigned short *dest_id, unsigned 
 
 	return offset;
 }
-
+/**
+	@~English
+	@brief parse multi hop header function
+	@param dataBuf : packet buffer
+	@param pFc :
+	@param pSeq_no: Sequence Number
+	@param pDest_id : dest PAN ID
+	@param pSrc_id : source PAN ID
+	@param pDest_addr : Dest Address
+	@param pSrc_addr : Source Addres
+	@return Success : Data Offset
+	@~Japanese
+	@brief マルチホップヘッダのパース 関数
+	@param dataBuf : パケットバッファ
+	@param pFc :
+	@param pSeq_no : シーケンス番号
+	@param pDest_id : 送信先PAN　ID
+	@param pSrc_id : 送信元 PAN ID
+	@param pDest_addr : 送信先アドレス
+	@param pSrc_addr : 送信元アドレス
+	@return 成功:  データのオフセット
+**/
 int parseMHR(BYTE dataBuf[] , unsigned short *pFc, BYTE *pSeq_no, unsigned short *pDest_id, unsigned short *pSrc_id, long *pDest_addr, long *pSrc_addr)
 {
 	unsigned int offset = 3;
@@ -1112,6 +1660,30 @@ int parseMHR(BYTE dataBuf[] , unsigned short *pFc, BYTE *pSeq_no, unsigned short
 
 }
 
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data send function
+	@param buf : send data buffer
+	@param size : send data size
+	@param hop : hop mode
+	@param send_mode : send mode
+	@param dest_id : dest PAN ID
+	@param src_id : source PAN ID
+	@param dest_addr : Dest Address
+	@param src_addr : Source Address
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module データ送信 関数
+	@param buf : 送信データバッファ
+	@param size : 送信データサイズ
+	@param hop : ホップ・モード
+	@param send_mode : 送信モード
+	@param dest_id : 送信先PAN　ID
+	@param src_id : 送信元 PAN ID
+	@param dest_addr : 送信先アドレス
+	@param src_addr : 送信元アドレス
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int SendTelegram(BYTE buf[], int size, int hop, int send_mode, unsigned short *dest_id, unsigned short *src_id, long *dest_addr, long *src_addr)
 {
 
@@ -1120,7 +1692,7 @@ int SendTelegram(BYTE buf[], int size, int hop, int send_mode, unsigned short *d
 	int i, ret;
 	int offset = 0;
 	unsigned short fc = 0;
-
+	BYTE syslog_string[256];
 
 	if( hop == CONEXIO_CMM920_HOP_MULTI ){
 		offset = calcMHR(
@@ -1158,13 +1730,74 @@ int SendTelegram(BYTE buf[], int size, int hop, int send_mode, unsigned short *d
 		pktBuf[3 + offset + i] = buf[i];
 	}
 
+	memset(&syslog_string[0], 0x00, 256);//Clear
+	sprintf(syslog_string,"[Send Teregram Application Buffer SIZE:%d] ", size);
+	for( i = 0; i < pktSize ; i ++ ){
+
+		if( (i % 65) == 0 ){ // 1行 207byte (69)以降切れるため
+			_conexio_cmm920_output_syslog_notice( syslog_string );
+			memset(&syslog_string[0], 0x00, 256 );
+		}
+
+		sprintf(syslog_string,"%s%02X ",syslog_string, buf[i]);
+	}
+	_conexio_cmm920_output_syslog_notice( syslog_string );
+	memset(&syslog_string[0],0x00, 256); //Clear
+	for( i = 0; i < pktSize ; i ++ ){
+		if( (i % 65) == 0 && i != 0){ // 1行 207byte (69)以降切れるため
+			_conexio_cmm920_output_syslog_notice( syslog_string );
+			memset(&syslog_string[0], 0x00, 256 );
+		}
+		sprintf(syslog_string,"%s%02X ",syslog_string, pktBuf[i]);
+	}
+	_conexio_cmm920_output_syslog_notice( syslog_string );
+
+	sprintf(syslog_string,"[Send Teregram Packet SIZE:%d] ", pktSize);
+	for( i = 0; i < pktSize ; i ++ ){
+
+		if( (i % 65) == 0 ){ // 1行 207byte (69)以降切れるため
+			_conexio_cmm920_output_syslog_notice( syslog_string );
+			memset(&syslog_string[0], 0x00, 256 );
+		}
+
+		sprintf(syslog_string,"%s%02X ",syslog_string, pktBuf[i]);
+	}
+	_conexio_cmm920_output_syslog_notice( syslog_string );
+
 	ret = (int)SendCommand(pktBuf, pktSize, CONEXIO_CMM920_MODE_RUN, CONEXIO_CMM920_SENDDATA);
 
 	return ret;
 
 }
 
-
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data receive function
+	@param buf : receive data buffer
+	@param size : receive data size
+	@param hop : hop mode
+	@param r_channel : receive channel
+	@param rx_pwr : receive power
+	@param crc: crc value
+	@param dest_id : dest PAN ID
+	@param src_id : source PAN ID
+	@param dest_addr : Dest Address
+	@param src_addr : Source Addres
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のデータ受信 関数
+	@param buf : 受信データバッファ
+	@param size : 受信データサイズ
+	@param hop : ホップ・モード
+	@param r_channel : 受信チャネル
+	@param rx_pwr : 受信強度
+	@param crc: CRC値
+	@param dest_id : 送信先PAN　ID
+	@param src_id : 送信元 PAN ID
+	@param dest_addr : 送信先アドレス
+	@param src_addr : 送信元アドレス
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int RecvTelegram(BYTE buf[], int *size , int hop, int *r_channel, int *rx_pwr, unsigned int *crc ,unsigned short *dest_id, unsigned short *src_id, long *dest_addr, long *src_addr)
 {
 	int iRet = 0;	
@@ -1198,6 +1831,25 @@ int RecvTelegram(BYTE buf[], int *size , int hop, int *r_channel, int *rx_pwr, u
 
 }
 
+
+/**
+	@~English
+	@brief CONEXIO 920MHz Module data receive with single hop function
+	@param buf : receive data buffer
+	@param size : receive data size
+	@param r_channel : receive channel
+	@param rx_pwr : receive power
+	@param crc: crc value
+	@return Success : 0 , Failed : From -1 to -15 : Parameter Error, From -16 to -31 Send Error, less than -32 : Receive Error
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のシングルホップ用データ受信 関数
+	@param buf : 受信データバッファ
+	@param size : 受信データサイズ
+	@param r_channel : 受信チャネル
+	@param rx_pwr : 受信強度
+	@param crc: CRC値
+	@return 成功:  0 失敗 :  送信 エラー:  -1～-15 -16～-31,　受信エラー : -32～
+**/
 int RecvTelegramSingleHop(BYTE buf[], int *size , int *r_channel, int *rx_pwr , unsigned int *crc )
 {
 
@@ -1265,12 +1917,31 @@ int RecvTelegramSingleHop(BYTE buf[], int *size , int *r_channel, int *rx_pwr , 
 }
 
 // Send Command CMM920
+/**
+	@~English
+	@brief CONEXIO 920MHz Module command send function
+	@param buf : send data buffer
+	@param size : send data size
+	@param mode : send mode
+	@param command : command
+	@return Success : 0 , Failed : Packet memory allocation error : -1, Data memory allocation error : -2
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のコマンドデータ受信 関数
+	@param buf : 送信データバッファ
+	@param size : 送信データサイズ
+	@param mode : 送信モード
+	@param command : コマンド
+	@return 成功:  0 失敗 :  パケットメモリ確保エラー:  -1, データメモリ確保エラー : -2
+**/
 int SendCommand(BYTE buf[], int size, BYTE mode, BYTE command )
 {
 	BYTE *array;
 	int length = 0;
 	int i;
 	PCONEXIO920PACKET pac;
+	BYTE syslog_string[256];
+
+	memset(&syslog_string[0], 0x00, 256 );
 
 	pac = allocConexioCMM920_packet(pac, mode, command, 1);
 
@@ -1299,18 +1970,44 @@ int SendCommand(BYTE buf[], int size, BYTE mode, BYTE command )
 
 	DbgPrint("Send Data = ");
 
+	sprintf(syslog_string,"[Sending Data] ");
+
 	for (i = 0; i < length; i++)
 	{
+
+		if( (i % 65) == 0 ){ // 1行 207byte (69)以降切れるため
+			_conexio_cmm920_output_syslog_notice( syslog_string );
+			memset(&syslog_string[0], 0x00, 256 );
+		}
+
+		sprintf(syslog_string,"%s%02X ",syslog_string, array[i]);
 		DbgPrint("%02X", array[i]);
+
 	}
 
 	DbgPrint("\n");
 
-	// malloc縺ｧ遒ｺ菫昴＠縺溘Γ繝｢繝ｪ縺ｯ蠢�縺夊ｧ｣謾ｾ縺吶ｋ
+	_conexio_cmm920_output_syslog_notice( syslog_string );
+
+	// mallocで取得したメモリを解放する
 	free(array);
 	return 0;
 }
 
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Receive Packet Check Function
+	@param pac : Receive CONEXIO Packet structure
+	@param array : Receive Data Array
+	@param size : Receive Data Array Size
+	@return Success : 0 , Failed : memory allocation error : 1, Header error : 2 , packet size chack Error : 4, Packet footer error : 8, Myself command acknowledge Error : 16, Check Sum Error : 32
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の受信パケットのチェック 関数
+	@param pac : 受信パケットバッファ
+	@param array : 受信データ
+	@param size : 受信データサイズ
+	@return 成功:  0 失敗 :  メモリ確保エラー:  1, ヘッダエラー : 2, パケットサイズチェックエラー: 4, パケットフッタエラー : 8 ,  ACK エラー :  16,  チェックサムエラー : 32
+**/
 int pktChkBYTEArray(PCONEXIO920PACKET pac, BYTE *array, int size )
 {
 	long cnt;
@@ -1379,6 +2076,22 @@ int pktChkBYTEArray(PCONEXIO920PACKET pac, BYTE *array, int size )
 	return iRet;
 }
 
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Receive Packet acknowledge Function
+	@param buf : Data Buffer
+	@param size : Data Size
+	@param mode : Send Mode ( Analyze Packet Check )
+	@param command : Send Command  ( Analyze Packet Check )
+	@return Success : 0 , Failed : Packet memory allocation error : -1, Data memory allocation error : -3, Analyze Packet memory allocation error : -4, Analyze Data memory allocation error : -5, Receive Packet Check Error : -6
+	@~Japanese
+	@brief CONEXIO 920MHz　Module の受信パケットのチェック 関数
+	@param buf : 受信データバッファ
+	@param size : 受信データサイズ
+	@param mode :　送信モード  ( パケット解析チェック用 )
+	@param command : 送信コマンド ( パケット解析チェック用 )
+	@return 成功:  0 失敗 :  パケットメモリ確保エラー:  -1, データサイズエラー : -2, データメモリ確保エラー : -3,  解析用パケットメモリ確保エラー:  -4,  解析用データメモリ確保エラー : -5,  受信パケットチェックエラー : -6
+**/
 int RecvCommandAck( BYTE *buf, int *size , BYTE mode, BYTE command )
 {
 
@@ -1388,8 +2101,12 @@ int RecvCommandAck( BYTE *buf, int *size , BYTE mode, BYTE command )
 	int i;
 	int iRet = 0;
 	int d_size = 0;
-	int readlen = 0;
+	int readlen = 0;	// 2016.07.20
+	int timeout	 = 1;	// 2016.07.29
 	PCONEXIO920PACKET pac;
+	BYTE syslog_string[256];
+
+	memset(&syslog_string[0], 0x00, 256 );
 
 	pac = allocConexioCMM920_packet(pac, 0, 0, 0);
 	if(pac == NULL){
@@ -1431,19 +2148,47 @@ int RecvCommandAck( BYTE *buf, int *size , BYTE mode, BYTE command )
 		array[i] = head_data[i];
 
 	// Get Data (without header)
-	do {
-		readlen += Serial_GetString(iPort, &array[4+readlen], (length - 4) * sizeof(BYTE));
+	for( i = 0; i < 10; i++ ){
+		int nRead = Serial_GetString(iPort, &array[4 + readlen], (length - 4 - readlen) * sizeof(BYTE));
+
+		if(nRead > 0){
+			readlen += nRead;
+		}
+
 		DbgPrint("Recvlen = %d\n", readlen);
-	} while (readlen < (length - 4));
+
+		if( readlen >= (length - 4) ){
+			timeout = 0;
+			break;
+		}
+		usleep( 100 * 1000 );
+	}
+	
+	if( timeout ){
+		DbgPrint("<RecvCommandAck> TimeOut Receive Error.\n");
+		free(array);
+		return -7;
+	}
 
 	DbgPrint("Recv Data = ");
 
+	sprintf(syslog_string,"[Receive Data] ");
 	for (i = 0; i < length; i++)
 	{
+
+		if( (i % 65) == 0 ){ // 1行 207byte (69)以降切れるため
+			_conexio_cmm920_output_syslog_notice( syslog_string );
+			memset(&syslog_string[0], 0x00, 256 );
+		}
+
+		sprintf(syslog_string,"%s%02X ",syslog_string, array[i]);
 		DbgPrint("%02X", array[i]);
 	}
 
 	DbgPrint("\n");
+
+	_conexio_cmm920_output_syslog_notice( syslog_string );
+
 
 	pac = allocConexioCMM920_packet(pac, mode, command, 1);
 	if(pac == NULL) {
@@ -1506,6 +2251,22 @@ int RecvCommandAck( BYTE *buf, int *size , BYTE mode, BYTE command )
 }
 
 // Allocate 920MHz Packet
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Allocate Packet Function
+	@param pac : CONEXIO Packet structure
+	@param mode : Send Mode
+	@param com : Send Command
+	@param isSend : 1. Send Packet ( Initialize Data ) 0.Receive Check Packet (Packet Allocate only )
+	@return Success : Packet struture Failed : NULL
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のパケット生成 関数
+	@param pac : パケットバッファ
+	@param mode :　送信モード
+	@param com : 送信コマンド
+	@param isSend : 1. 送信パケット（　初期化データ　)  0. 受信チェックパケット（パケット生成のみ )
+	@return 成功:  パケット 失敗 :  NULL
+**/
 PCONEXIO920PACKET allocConexioCMM920_packet(PCONEXIO920PACKET pac, BYTE mode, BYTE com, BYTE isSend )
 {
 	pac = (PCONEXIO920PACKET)malloc(sizeof(CONEXIO920PACKET));
@@ -1530,6 +2291,14 @@ PCONEXIO920PACKET allocConexioCMM920_packet(PCONEXIO920PACKET pac, BYTE mode, BY
 }
 
 // Free memory 920MHz packet
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Free Packet Function
+	@param pac : CONEXIO Packet structure
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のパケット解放 関数
+	@param pac : パケットバッファ
+**/
 void freeConexioCMM920_packet(PCONEXIO920PACKET pac)
 {
 	if(pac->data != (BYTE *)NULL){
@@ -1545,6 +2314,24 @@ void freeConexioCMM920_packet(PCONEXIO920PACKET pac)
 }
 
 // Make 920MHz packet
+/**
+	@~English
+	@brief CONEXIO 920MHz Module Get Data Array from Packet
+	@param pac : CONEXIO Packet structure
+	@param size : Data Size
+	@param retSize : Byte Array Data Size
+	@par Create BYTE Array for seiral communication function.
+	@warning After running function, Free CONEXIO Packet structure.
+	@return Success : BYTE Array Failed : NULL
+	@~Japanese
+	@brief CONEXIO 920MHz　Module のパケットをBYTE配列取得 関数
+	@param pac : パケットバッファ
+	@param size :　データサイズ
+	@param retSize : BYTE配列サイズ
+	@par シリアル通信用のBYTE配列を作成します。
+	@warning 関数実行後、パケットが解放されます。
+	@return 成功:  バイト配列  失敗 :  NULL
+**/
 BYTE* pktGetBYTEArray( PCONEXIO920PACKET pac, int size , int *retSize)
 {
 	BYTE* retArray;
@@ -1597,4 +2384,19 @@ BYTE* pktGetBYTEArray( PCONEXIO920PACKET pac, int size , int *retSize)
 	freeConexioCMM920_packet(pac);
 
 	return retArray;
+}
+
+
+/**
+	@~English
+	@brief CONEXIO 920MHz Library Get Version
+	@param libVer : Library Version
+	@~Japanese
+	@brief CONEXIO 920MHz　Module ライブラリのバージョンを取得します
+	@param libVer   ライブラリのバージョン
+**/
+void conexio_cmm920_get_lib_version( char *libVer ){
+
+	strcpy(libVer,LIB_CONNEXIO_CMM920_VERSION);
+
 }
