@@ -1,7 +1,7 @@
-/*
+/*!
  *  Lib for Serial Port Communication Functions.
  *
- *  Copyright (C) 2015 Syunsuke Okamoto.
+ *  Copyright (C) 2015 Syunsuke Okamoto, CONTEC.CO.,Ltd.
  *
 * This library is free software; you can redistribute it and/or
 * modify it under the terms of the GNU Lesser General Public
@@ -17,7 +17,7 @@
 * License along with this library; if not, see
    <http://www.gnu.org/licenses/>.  */
 
-#include<stdio.h>
+#include <stdio.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -26,25 +26,43 @@
 #include <linux/serial.h>
 #include "serialfunc.h"
 
-static struct termios oldtio; //!< Œ»Ý‚ÌƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌÝ’è‚ðŠi”[
+#define LIB_SERIAL_VERSION	"1.0.7"
+
+static struct termios oldtio; //!< ç¾åœ¨ã®ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®è¨­å®šã‚’æ ¼ç´
+
+/*!
+ @~English
+ @name DebugPrint macro
+ @~Japanese
+ @name ãƒ‡ãƒãƒƒã‚°ç”¨è¡¨ç¤ºãƒžã‚¯ãƒ­
+*/
+/// @{
+
+#if 0
+#define DbgPrint(fmt...)	printf(fmt)
+#else
+#define DbgPrint(fmt...)	do { } while (0)
+#endif
+
+/// @}
 
 //////////////////////////////////////////////////////////////////////////////
-/// \brief   ƒVƒŠƒAƒ‹ƒ|[ƒg‚ðƒI[ƒvƒ“‚·‚éŠÖ”
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã‚’åŠäºŒé‡é€šä¿¡ã§ã‚ªãƒ¼ãƒ—ãƒ³ã™ã‚‹é–¢æ•°
 ///
-/// \return  ƒI[ƒvƒ“‚µ‚½ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ö‚Ìƒ|ƒCƒ“ƒ^
-/// \param   *AsDev  ƒI[ƒvƒ“‚·‚éƒVƒŠƒAƒ‹ƒfƒoƒCƒX /dev/ttyS?
-/// \param   AlSpeed      ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ì‘¬“x 2400,4800,9600,19200,38400,57600,115200
-/// \param   AiLength     ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ìƒf[ƒ^’· 7,8
-/// \param   AiStop       ƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌƒXƒgƒbƒvƒrƒbƒg 0,1,2
-/// \param   AiParity     ƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌƒpƒŠƒeƒB 0(n),1(e),2(o)
-/// \param   AiWait       ƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌŽóM‘Ò‚¿ŽžŠÔ
-/// \param   AiBlockMode   ƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌƒI[ƒvƒ“Žž‚ÌƒuƒƒbƒLƒ“ƒO(0:–³Œø 1:—LŒø)
+/// \return  ã‚ªãƒ¼ãƒ—ãƒ³ã—ãŸã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã¸ã®ãƒã‚¤ãƒ³ã‚¿
+/// \param   *AsDev  ã‚ªãƒ¼ãƒ—ãƒ³ã™ã‚‹ã‚·ãƒªã‚¢ãƒ«ãƒ‡ãƒã‚¤ã‚¹ /dev/ttyS?
+/// \param   AlSpeed      ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®é€Ÿåº¦ 2400,4800,9600,19200,38400,57600,115200, 460800, 921600
+/// \param   AiLength     ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ãƒ‡ãƒ¼ã‚¿é•· 7,8
+/// \param   AiStop       ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ã‚¹ãƒˆãƒƒãƒ—ãƒ“ãƒƒãƒˆ 0,1,2
+/// \param   AiParity     ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ãƒ‘ãƒªãƒ†ã‚£ 0(n),1(e),2(o)
+/// \param   AiWait       ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®å—ä¿¡å¾…ã¡æ™‚é–“
+/// \param   AiBlockMode   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ã‚ªãƒ¼ãƒ—ãƒ³æ™‚ã®ãƒ–ãƒ­ãƒƒã‚­ãƒ³ã‚°(0:ç„¡åŠ¹ 1:æœ‰åŠ¹)
 ////////////////////////////////////////////////////////////////////////////////
 int Serial_PortOpen_Half( char *AsDev, long AlSpeed, int AiLength, int AiStop, int AiParity , int AiWait, int AiBlockMode)
 {
 	static int iPort;
 
-	iPort = Serial_PortOpen_Func(AsDev, AlSpeed, AiLength, AiStop, AiParity, AiWait, AiBlockMode);
+	iPort = Serial_PortOpen_Func(AsDev, AlSpeed, AiLength, AiStop, AiParity, AiWait, AiBlockMode, 0);
 
 	ioctl( iPort, TIOCSRS485, 1  ); // rs485 enable
 
@@ -52,16 +70,19 @@ int Serial_PortOpen_Half( char *AsDev, long AlSpeed, int AiLength, int AiStop, i
 }
 
 //////////////////////////////////////////////////////////////////////////////
-/// \brief   ƒVƒŠƒAƒ‹ƒ|[ƒg‚ðƒI[ƒvƒ“‚·‚éŠÖ”
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã‚’ã‚ªãƒ¼ãƒ—ãƒ³ã™ã‚‹é–¢æ•°
 ///
-/// \return  ƒI[ƒvƒ“‚µ‚½ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ö‚Ìƒ|ƒCƒ“ƒ^
-/// \param   *AsDev  ƒI[ƒvƒ“‚·‚éƒVƒŠƒAƒ‹ƒfƒoƒCƒX /dev/ttyS?
-/// \param   AlSpeed      ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ì‘¬“x 2400,4800,9600,19200,38400,57600,115200
-/// \param   AiLength     ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ìƒf[ƒ^’· 7,8
-/// \param   AiStop       ƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌƒXƒgƒbƒvƒrƒbƒg 0,1,2
-/// \param   AiParity     ƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌƒpƒŠƒeƒB 0(n),1(e),2(o)
+/// \return  ã‚ªãƒ¼ãƒ—ãƒ³ã—ãŸã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã¸ã®ãƒã‚¤ãƒ³ã‚¿
+/// \param   *AsDev  ã‚ªãƒ¼ãƒ—ãƒ³ã™ã‚‹ã‚·ãƒªã‚¢ãƒ«ãƒ‡ãƒã‚¤ã‚¹ /dev/ttyS?
+/// \param   AlSpeed      ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®é€Ÿåº¦ 2400,4800,9600,19200,38400,57600,115200,460800,921600
+/// \param   AiLength     ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ãƒ‡ãƒ¼ã‚¿é•· 7,8
+/// \param   AiStop       ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ã‚¹ãƒˆãƒƒãƒ—ãƒ“ãƒƒãƒˆ 0,1,2
+/// \param   AiParity     ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ãƒ‘ãƒªãƒ†ã‚£ 0(n),1(e),2(o)
+/// \param   AiWait       ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®å—ä¿¡å¾…ã¡æ™‚é–“
+/// \param   AiOpenMode   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ã‚ªãƒ¼ãƒ—ãƒ³æ™‚ã®ãƒ–ãƒ­ãƒƒã‚­ãƒ³ã‚°(0:ç„¡åŠ¹ 1:æœ‰åŠ¹)
+/// \param   AiFlow       ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ã‚ªãƒ¼ãƒ—ãƒ³æ™‚ã®ãƒ•ãƒ­ãƒ¼åˆ¶å¾¡ ( 0:ãªã—, 1:RTS/CTS, 2:DTR/DSR )
 //////////////////////////////////////////////////////////////////////////////
-int Serial_PortOpen_Func( char *AsDev, long AlSpeed, int AiLength, int AiStop, int AiParity ,int AiWait, int AiOpenMode ){
+int Serial_PortOpen_Func( char *AsDev, long AlSpeed, int AiLength, int AiStop, int AiParity ,int AiWait, int AiOpenMode, int AiFlow ){
 	static struct termios newtio;
 	static int iPort;
 	static int iOpenMode;
@@ -71,36 +92,36 @@ int Serial_PortOpen_Func( char *AsDev, long AlSpeed, int AiLength, int AiStop, i
 		case 1: iOpenMode = O_RDWR | O_NOCTTY | O_NONBLOCK ; break;
 	}
 
-	/* “Ç‚Ý‘‚«‚Ìˆ×‚Éƒ‚ƒfƒ€ƒfƒoƒCƒX‚ðƒI[ƒvƒ“‚·‚éBƒmƒCƒY‚É‚æ‚Á‚ÄCTRL-C‚ª
-		‚½‚Ü‚½‚Ü”­¶‚µ‚Ä‚àÚ‘±‚ªØ‚ê‚È‚¢‚æ‚¤‚Étty§Œä‚Í‚µ‚È‚¢ */
+	/* èª­ã¿æ›¸ãã®ç‚ºã«ãƒ¢ãƒ‡ãƒ ãƒ‡ãƒã‚¤ã‚¹ã‚’ã‚ªãƒ¼ãƒ—ãƒ³ã™ã‚‹ã€‚ãƒŽã‚¤ã‚ºã«ã‚ˆã£ã¦CTRL-CãŒ
+		ãŸã¾ãŸã¾ç™ºç”Ÿã—ã¦ã‚‚æŽ¥ç¶šãŒåˆ‡ã‚Œãªã„ã‚ˆã†ã«ttyåˆ¶å¾¡ã¯ã—ãªã„ */
 	iPort = open( AsDev, iOpenMode );
 	if( iPort < 0 ){
 		perror( AsDev );
 		return -1;
 	}
-	// Œ»Ý‚ÌƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌÝ’è‚ð•Û‘¶(CloseŽž‚É–ß‚·ˆ×)
+	// ç¾åœ¨ã®ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®è¨­å®šã‚’ä¿å­˜(Closeæ™‚ã«æˆ»ã™ç‚º)
 	tcgetattr( iPort, &oldtio );
 
-	Serial_PortSetParameter(iPort, AlSpeed, AiLength, AiStop, AiParity, AiWait);
+	Serial_PortSetParameter(iPort, AlSpeed, AiLength, AiStop, AiParity, AiWait, AiFlow);
 
 	return iPort;
 }
 
 //////////////////////////////////////////////////////////////////////////////
-/// \brief   ƒVƒŠƒAƒ‹ƒ|[ƒg‚ðƒI[ƒvƒ“‚·‚éŠÖ”
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’è¨­å®šã™ã‚‹é–¢æ•°
 ///
-/// \return  ƒI[ƒvƒ“‚µ‚½ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ö‚Ìƒ|ƒCƒ“ƒ^
-/// \param   AiPort       ƒVƒŠƒAƒ‹ƒ|[ƒg‹LqŽq
-/// \param   AiSpeed      ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ì‘¬“x 2400,4800,9600,19200,38400,57600,115200
-/// \param   AiLength     ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ìƒf[ƒ^’· 7,8
-/// \param   AiStop       ƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌƒXƒgƒbƒvƒrƒbƒg 0,1,2
-/// \param   AiParity     ƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌƒpƒŠƒeƒB 0(n),1(e),2(o)
+/// \param   AiPort       ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‡ã‚£ã‚¹ã‚¯ãƒªãƒ—ã‚¿
+/// \param   AiSpeed      ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®é€Ÿåº¦ 2400,4800,9600,19200,38400,57600,115200,460800,921600
+/// \param   AiLength     ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ãƒ‡ãƒ¼ã‚¿é•· 7,8
+/// \param   AiStop       ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ã‚¹ãƒˆãƒƒãƒ—ãƒ“ãƒƒãƒˆ 0,1,2
+/// \param   AiParity     ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®ãƒ‘ãƒªãƒ†ã‚£ 0(n),1(e),2(o)
+/// \param   AiWait       ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®å—ä¿¡å¾…ã¡æ™‚é–“
 //////////////////////////////////////////////////////////////////////////////
-void Serial_PortSetParameter(int AiPort, int AiSpeed, int AiLength, int AiStop, int AiParity, int AiWait)
+void Serial_PortSetParameter(int AiPort, int AiSpeed, int AiLength, int AiStop, int AiParity, int AiWait, int AiFlow)
 {
 	static struct termios newtio;
 
-	// §ŒäƒR[ƒh‚Ì‰Šú‰»‚ðs‚¤
+	// åˆ¶å¾¡ã‚³ãƒ¼ãƒ‰ã®åˆæœŸåŒ–ã‚’è¡Œã†
 	newtio.c_iflag = 0;
 	newtio.c_oflag = 0;
 	newtio.c_cflag = 0;
@@ -108,19 +129,19 @@ void Serial_PortSetParameter(int AiPort, int AiSpeed, int AiLength, int AiStop, 
 	newtio.c_line = 0;
 	bzero( newtio.c_cc, sizeof(newtio.c_cc) );
 
-	///// c_cflag‚ÌÝ’è /////
+	///// c_cflagã®è¨­å®š /////
 	/* Setting for c_cflag
-		B115200`B2400 : ’ÊM‘¬“x
-		CS5`CS8 : ƒf[ƒ^ƒrƒbƒg’·
-		CSTOPB   : ƒXƒgƒbƒvƒrƒbƒg’·=2(•t‚¯‚È‚¯‚ê‚Î1)
-		CPARENB  : ƒpƒŠƒeƒB—LŒø(‚±‚Ì‚Ü‚Ü‚Å‚Í‹ô”)
-		CPARODD  : ƒpƒŠƒeƒB‚ðŠï”‚É‚·‚é
-		CLOCAL   : ƒ‚ƒfƒ€‚Ì§Œäü‚ð–³Ž‹‚·‚é
-		CREAD    : ŽóM•¶Žš‚ð—LŒø‚É‚·‚é
-		CRTSCTS  : o—Í‚Ìƒn[ƒhƒEƒFƒAƒtƒ[§Œä‚ð—LŒø‚É‚·‚é
-		HUPCL    : ÅŒã‚ÌƒvƒƒZƒX‚ªƒNƒ[ƒY‚µ‚½ŒãAƒ‚ƒfƒ€‚Ì§Œäü‚ðLOW‚É‚·‚é
+		B921600ï½žB2400 : é€šä¿¡é€Ÿåº¦
+		CS5ï½žCS8 : ãƒ‡ãƒ¼ã‚¿ãƒ“ãƒƒãƒˆé•·
+		CSTOPB   : ã‚¹ãƒˆãƒƒãƒ—ãƒ“ãƒƒãƒˆé•·=2(ä»˜ã‘ãªã‘ã‚Œã°1)
+		CPARENB  : ãƒ‘ãƒªãƒ†ã‚£æœ‰åŠ¹(ã“ã®ã¾ã¾ã§ã¯å¶æ•°)
+		CPARODD  : ãƒ‘ãƒªãƒ†ã‚£ã‚’å¥‡æ•°ã«ã™ã‚‹
+		CLOCAL   : ãƒ¢ãƒ‡ãƒ ã®åˆ¶å¾¡ç·šã‚’ç„¡è¦–ã™ã‚‹
+		CREAD    : å—ä¿¡æ–‡å­—ã‚’æœ‰åŠ¹ã«ã™ã‚‹
+		CRTSCTS  : å‡ºåŠ›ã®ãƒãƒ¼ãƒ‰ã‚¦ã‚§ã‚¢ãƒ•ãƒ­ãƒ¼åˆ¶å¾¡ã‚’æœ‰åŠ¹ã«ã™ã‚‹
+		HUPCL    : æœ€å¾Œã®ãƒ—ãƒ­ã‚»ã‚¹ãŒã‚¯ãƒ­ãƒ¼ã‚ºã—ãŸå¾Œã€ãƒ¢ãƒ‡ãƒ ã®åˆ¶å¾¡ç·šã‚’LOWã«ã™ã‚‹
 	*/
-	// ’ÊM‘¬“x‚ÌƒZƒbƒg
+	// é€šä¿¡é€Ÿåº¦ã®ã‚»ãƒƒãƒˆ
 	switch( AiSpeed ){
 		case 921600:
 			newtio.c_cflag = B921600;
@@ -150,78 +171,96 @@ void Serial_PortSetParameter(int AiPort, int AiSpeed, int AiLength, int AiStop, 
 			newtio.c_cflag = B2400;
 			break;
 		default:
-			newtio.c_cflag = B9600; // ƒfƒtƒHƒ‹ƒg‚Í9600bps
+			newtio.c_cflag = B9600; // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã¯9600bps
 			break;
 	}
-	// ƒf[ƒ^ƒrƒbƒg’·‚ÌÝ’è
+	// ãƒ‡ãƒ¼ã‚¿ãƒ“ãƒƒãƒˆé•·ã®è¨­å®š
 	switch( AiLength ){
 		case 7:
-			// CS7  : ƒf[ƒ^’·‚ð7ƒrƒbƒg‚É‚·‚é
+			// CS7  : ãƒ‡ãƒ¼ã‚¿é•·ã‚’7ãƒ“ãƒƒãƒˆã«ã™ã‚‹
 			newtio.c_cflag = newtio.c_cflag | CS7 ;
 			break;
 		default:
-			// CS8  : ƒfƒtƒHƒ‹ƒg‚Å‚Íƒf[ƒ^’·‚ð8ƒrƒbƒg‚É‚·‚é
+			// CS8  : ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã§ã¯ãƒ‡ãƒ¼ã‚¿é•·ã‚’8ãƒ“ãƒƒãƒˆã«ã™ã‚‹
 			newtio.c_cflag = newtio.c_cflag | CS8 ;
 			break;
 	}
-	// ƒXƒgƒbƒvƒrƒbƒg‚ÌÝ’è
+	// ã‚¹ãƒˆãƒƒãƒ—ãƒ“ãƒƒãƒˆã®è¨­å®š
 	switch( AiStop ){
 		case 2:
-			// CSTOPB   : ƒXƒgƒbƒvƒrƒbƒg‚ð2‚É‚·‚é
+			// CSTOPB   : ã‚¹ãƒˆãƒƒãƒ—ãƒ“ãƒƒãƒˆã‚’2ã«ã™ã‚‹
 			newtio.c_cflag = newtio.c_cflag | CSTOPB ; 
 			break;
 		default:
-			// ƒfƒtƒHƒ‹ƒg‚Å‚Í1
+			// ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã§ã¯1
 			newtio.c_cflag = newtio.c_cflag & ~CSTOPB ;
 			break;
 	}
-	// ƒpƒŠƒeƒB‚ÌƒZƒbƒg
+	// ãƒ‘ãƒªãƒ†ã‚£ã®ã‚»ãƒƒãƒˆ
 	switch( AiParity ){
 		case 1:
-			// PARENB  : ƒpƒŠƒeƒB‚ð—LŒø‚É‚·‚é(•W€‚Å‚Í‹ô”)
+			// PARENB  : ãƒ‘ãƒªãƒ†ã‚£ã‚’æœ‰åŠ¹ã«ã™ã‚‹(æ¨™æº–ã§ã¯å¶æ•°)
 			newtio.c_cflag = newtio.c_cflag | PARENB ;
 			break;
 		case 2:
-			// PARENB  : ƒpƒŠƒeƒB‚ð—LŒø‚É‚µŠï”‚ðƒZƒbƒg
+			// PARENB  : ãƒ‘ãƒªãƒ†ã‚£ã‚’æœ‰åŠ¹ã«ã—å¥‡æ•°ã‚’ã‚»ãƒƒãƒˆ
 			newtio.c_cflag = newtio.c_cflag | PARENB | PARODD ;
 			break;
+		default:
+			// NO PARITY
+			break;
 	}
+
+	// Ver 1.0.3 Flow Control Added 
+	// Setting of hardware flow 
+	switch( AiFlow ){
+		case 1:
+			// CRTSCTS  : enables hardware flow
+			newtio.c_cflag = newtio.c_cflag | CRTSCTS;
+			break;
+		case 0:	
+		default:
+			// no hardware flow
+			break;
+	}
+	// Ver 1.0.3 End
+	
 //	newtio.c_cflag = newtio.c_cflag | CLOCAL | CREAD;
-	newtio.c_cflag = newtio.c_cflag | CLOCAL | CRTSCTS | CREAD;
+	newtio.c_cflag = newtio.c_cflag | CLOCAL | CREAD;
 
-	///// c_iflag‚ÌÝ’è /////
-//	newtio.c_iflag = IGNPAR; // IGNPAR : ƒpƒŠƒeƒBƒGƒ‰[‚Ìƒf[ƒ^‚Í–³Ž‹
-	newtio.c_iflag = IGNPAR | IGNBRK; // IGNPAR : ƒpƒŠƒeƒBƒGƒ‰[‚Ìƒf[ƒ^‚Í–³Ž‹
+	///// c_iflagã®è¨­å®š /////
+//	newtio.c_iflag = IGNPAR; // IGNPAR : ãƒ‘ãƒªãƒ†ã‚£ã‚¨ãƒ©ãƒ¼ã®ãƒ‡ãƒ¼ã‚¿ã¯ç„¡è¦–
+	newtio.c_iflag = IGNPAR | IGNBRK; // IGNBRK : ãƒ–ãƒ¬ãƒ¼ã‚¯ä¿¡å·ã¯ç„¡è¦–
 
-	///// c_oflag‚ÌÝ’è /////
-	newtio.c_oflag = 0;     // 0:Rawƒ‚[ƒh‚Å‚Ìo—Í
+	///// c_oflagã®è¨­å®š /////
+	newtio.c_oflag = 0;     // 0:Rawãƒ¢ãƒ¼ãƒ‰ã§ã®å‡ºåŠ›
 
-	///// c_lflag‚ÌÝ’è /////
+	///// c_lflagã®è¨­å®š /////
 	newtio.c_lflag = 0;  // Set input mode (non-canonical,no echo,....)
-	/*@ICANON : ƒJƒmƒjƒJƒ‹“ü—Í‚ð—LŒø‚É‚·‚é */
-	newtio.c_cc[VTIME] = AiWait * 2; // 0:ƒLƒƒƒ‰ƒNƒ^ƒ^ƒCƒ}
-	newtio.c_cc[VMIN] = 0;  // Žw’è•¶Žš—ˆ‚é‚Ü‚Å“Ç‚Ýž‚Ý‚ðƒuƒƒbƒN(0:‚µ‚È‚¢ 1:‚·‚é)
+	/*ã€€ICANON : ã‚«ãƒŽãƒ‹ã‚«ãƒ«å…¥åŠ›ã‚’æœ‰åŠ¹ã«ã™ã‚‹ */
+	newtio.c_cc[VTIME] = AiWait / 100; // 0:ã‚­ãƒ£ãƒ©ã‚¯ã‚¿ã‚¿ã‚¤ãƒž ( AiWait(msec) / 100)
+	newtio.c_cc[VMIN] = 0;  // æŒ‡å®šæ–‡å­—æ¥ã‚‹ã¾ã§èª­ã¿è¾¼ã¿ã‚’ãƒ–ãƒ­ãƒƒã‚¯(0:ã—ãªã„ 1:ã™ã‚‹)
 
-	///// ƒ‚ƒfƒ€ƒ‰ƒCƒ“‚ðƒNƒŠƒA /////
+	///// ãƒ¢ãƒ‡ãƒ ãƒ©ã‚¤ãƒ³ã‚’ã‚¯ãƒªã‚¢ /////
 	tcflush( AiPort, TCIFLUSH );
 // change start 2004/08/25 tkasuya,contec
-//	// V‚µ‚¢Ý’è‚ð“K—p‚·‚é (TCSANOWF‚½‚¾‚¿‚É•ÏX‚ª—LŒø‚Æ‚È‚é)
-//	tcsetattr( iPort, TCSANOW, &newtio );
-	// V‚µ‚¢Ý’è‚ð“K—p‚·‚é (TCSADRAINF•ÏX‚ðo—Í‚ªƒtƒ‰ƒbƒVƒ…‚³‚ê‚½Œã‚É”½‰f)
+//	// æ–°ã—ã„è¨­å®šã‚’é©ç”¨ã™ã‚‹ (TCSANOWï¼šãŸã ã¡ã«å¤‰æ›´ãŒæœ‰åŠ¹ã¨ãªã‚‹)
+//	tcsetattr( AiPort, TCSANOW, &newtio );
+	// æ–°ã—ã„è¨­å®šã‚’é©ç”¨ã™ã‚‹ (TCSADRAINï¼šå¤‰æ›´ã‚’å‡ºåŠ›ãŒãƒ•ãƒ©ãƒƒã‚·ãƒ¥ã•ã‚ŒãŸå¾Œã«åæ˜ )
 	tcsetattr( AiPort, TCSADRAIN, &newtio );
 // change end
 
 }
 
 //////////////////////////////////////////////////////////////////////////////
-/// \brief   ƒVƒŠƒAƒ‹ƒ|[ƒg‚ð•Â‚¶‚éŠÖ”
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã‚’é–‰ã˜ã‚‹é–¢æ•°
 ///
 /// \return  void
-/// \param   Ai_Port  ƒVƒŠƒAƒ‹ƒ|[ƒg‹LqŽq
+/// \param   AiPort  ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
 //////////////////////////////////////////////////////////////////////////////
 void Serial_PortClose( int AiPort )
 {
-	// ƒVƒŠƒAƒ‹ƒ|[ƒg‚ÌÝ’è‚ðƒ|[ƒgƒI[ƒvƒ“‘O‚É–ß‚·
+	// ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®è¨­å®šã‚’ãƒãƒ¼ãƒˆã‚ªãƒ¼ãƒ—ãƒ³å‰ã«æˆ»ã™
 // change start 2004/08/25 tkasuya,contec
 //	tcsetattr( AiPort, TCSANOW, &oldtio );
 //	ioctl(AiPort, TIOCSRS485, 0); // rs485 enable
@@ -231,11 +270,11 @@ void Serial_PortClose( int AiPort )
 }
 
 //////////////////////////////////////////////////////////////////////////////
-/// \brief ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ö1ƒoƒCƒg‚ð‘‚«ž‚ÞŠÖ”
+/// \brief ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã¸1ãƒã‚¤ãƒˆã‚’æ›¸ãè¾¼ã‚€é–¢æ•°
 ///
-/// \return  o—ÍŒ‹‰Ê 0 c ¬Œ÷, -1 c Ž¸”s
-/// \param   Ai_Port  ƒVƒŠƒAƒ‹ƒ|[ƒg‹LqŽq
-/// \param   Ac_Char  o—Íƒf[ƒ^
+/// \return  å‡ºåŠ›çµæžœ 0 â€¦ æˆåŠŸ, -1 â€¦ å¤±æ•—
+/// \param   AiPort  ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+/// \param   AcChar  å‡ºåŠ›ãƒ‡ãƒ¼ã‚¿
 //////////////////////////////////////////////////////////////////////////////
 int Serial_PutChar( int AiPort, unsigned char AcChar )
 {
@@ -246,14 +285,14 @@ int Serial_PutChar( int AiPort, unsigned char AcChar )
 }
 
 //////////////////////////////////////////////////////////////////////////////
-/// \brief   ƒVƒŠƒAƒ‹ƒ|[ƒg‚©‚ç1•¶Žš“Ç‚Ýž‚ÞŠÖ”
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã‹ã‚‰1æ–‡å­—èª­ã¿è¾¼ã‚€é–¢æ•°
 ///
-/// \return  ŽóMƒf[ƒ^(1ƒoƒCƒg)
-/// \param   Ai_Port     ƒVƒŠƒAƒ‹ƒ|[ƒg‹LqŽq
+/// \return  å—ä¿¡ãƒ‡ãƒ¼ã‚¿(1ãƒã‚¤ãƒˆ)
+/// \param   AiPort     ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
 //////////////////////////////////////////////////////////////////////////////
-int Serial_GetChar( int AiPort )
+unsigned char Serial_GetChar( int AiPort )
 {
-	static unsigned char cRet;
+	static unsigned char cRet = 0xFF;
 	static int iRet;
 
 	iRet = read( AiPort, (char *)&cRet, 1 );
@@ -262,14 +301,14 @@ int Serial_GetChar( int AiPort )
 
 
 //////////////////////////////////////////////////////////////////////////////
-/// \brief   ƒVƒŠƒAƒ‹ƒ|[ƒg‚©‚ç•¶Žš—ñ‚ð“Çž‚ÞŠÖ”
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã‹ã‚‰æ–‡å­—åˆ—ã‚’èª­è¾¼ã‚€é–¢æ•°
 ///
-/// \return  “Çž‚ÝŠ®—¹ƒoƒCƒg”
-/// \param   Ai_Port     ƒVƒŠƒAƒ‹ƒ|[ƒg‹LqŽq
-/// \param   *As_Buffer  “Çž‚ñ‚¾•¶Žš—ñ‚ðŠi”[‚·‚éƒoƒbƒtƒ@‚Ö‚Ìƒ|ƒCƒ“ƒ^
-/// \param   Ai_Len       ˆê“x‚É“Çž‚ÞƒoƒCƒg”
+/// \return  èª­è¾¼ã¿å®Œäº†ãƒã‚¤ãƒˆæ•°
+/// \param   AiPort     ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+/// \param   *AsBuffer  èª­è¾¼ã‚“ã æ–‡å­—åˆ—ã‚’æ ¼ç´ã™ã‚‹ãƒãƒƒãƒ•ã‚¡ã¸ã®ãƒã‚¤ãƒ³ã‚¿
+/// \param   AiLen       ä¸€åº¦ã«èª­è¾¼ã‚€ãƒã‚¤ãƒˆæ•°
 //////////////////////////////////////////////////////////////////////////////
-int Serial_GetString( int AiPort, char *AsBuffer, int AiLen )
+int Serial_GetString( int AiPort, unsigned char *AsBuffer, int AiLen )
 {
 	static int iRet = 0;
 	struct serial_icounter_struct icount;
@@ -277,26 +316,206 @@ int Serial_GetString( int AiPort, char *AsBuffer, int AiLen )
 ioctl( AiPort, TIOCGICOUNT, &icount);
 //printf("rx[%d] tx[%d] Error:frame[%d] overrun[%d] parity[%d] boverrun[%d] \n", icount.rx, icount.tx, icount.frame, icount.overrun, icount.parity, icount.buf_overrun);
 
-	iRet = read( AiPort, AsBuffer, AiLen );
+	iRet = read( AiPort, (char *)AsBuffer, AiLen );
 
 	return iRet;
 }
 
 //////////////////////////////////////////////////////////////////////////////
-/// \brief   ƒVƒŠƒAƒ‹ƒ|[ƒg‚Ö‘½ƒoƒCƒg‚Ìƒf[ƒ^‚ð‘‚«ž‚ÞŠÖ”
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã¸å¤šãƒã‚¤ãƒˆã®ãƒ‡ãƒ¼ã‚¿ã‚’æ›¸ãè¾¼ã‚€é–¢æ•°
 ///
-/// \return  o—ÍŒ‹‰Ê 0 c ¬Œ÷, -1 c Ž¸”s
-/// \param   Ai_Port     ƒVƒŠƒAƒ‹ƒ|[ƒg‹LqŽq
-/// \param   *As_Buffer  ‘—M•¶Žš—ñ‚Ö‚Ìƒ|ƒCƒ“ƒ^
-/// \param   Ai_Len      ‘ž‚ÝƒoƒCƒg”
+/// \return  å‡ºåŠ›çµæžœ 0 â€¦ æˆåŠŸ, -1 â€¦ å¤±æ•—
+/// \param   AiPort     ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+/// \param   *AsBuffer  é€ä¿¡æ–‡å­—åˆ—ã¸ã®ãƒã‚¤ãƒ³ã‚¿
+/// \param   AiLen      æ›¸è¾¼ã¿ãƒã‚¤ãƒˆæ•°
 //////////////////////////////////////////////////////////////////////////////
-int Serial_PutString( int AiPort, char *AsBuffer, int AiLen )
+int Serial_PutString( int AiPort, unsigned char *AsBuffer, int AiLen )
 {
 	//if( write( AiPort, AsBuffer, AiLen ) != 1 ){
 	//	return -1;
 	//}
 	
 	//return 0;
+	DbgPrint("<Serial PutString AsBuf %s , Len : %d \n", AsBuffer, AiLen );
 
-	return write( AiPort, AsBuffer, AiLen );
+	return write( AiPort, (char *)AsBuffer, AiLen );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   ã‚µãƒ ãƒã‚§ãƒƒã‚¯ã‚’è¨ˆç®—ã™ã‚‹é–¢æ•°
+///
+/// \return  ã‚µãƒ ãƒã‚§ãƒƒã‚¯è¨ˆç®—å€¤
+/// \param   *AsBuffer    ã‚µãƒ ãƒã‚§ãƒƒã‚¯å¯¾è±¡æ–‡å­—åˆ—
+/// \param   AiLen        ã‚µãƒ ãƒã‚§ãƒƒã‚¯å¯¾è±¡æ–‡å­—æ•°
+/// \param   AiComplement ã‚µãƒ ãƒã‚§ãƒƒã‚¯ã«2ã®è£œæ•°ã‚’é©ç”¨ 1â€¦é©ç”¨,ä»–â€¦éžé©ç”¨
+//////////////////////////////////////////////////////////////////////////////
+int Serial_SumCheck( char *AsBuffer, int AiLen, int AiComplement ){
+	int iRet = 0;
+	int i = 0;
+
+	for( i = 0 ; i < AiLen ; i++ ){
+		iRet = iRet + AsBuffer[i];
+	}
+
+	if( AiComplement == 1 ){
+		iRet ^= 0xff;
+		iRet = iRet + 1;
+	}
+	iRet = iRet % 0x100;
+	return iRet;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   RTSã«å€¤ã‚’ã‚»ãƒƒãƒˆã™ã‚‹é–¢æ•°
+///
+/// \return  void
+/// \param   AiPort   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+/// \param   AiValue  ã‚»ãƒƒãƒˆå€¤(0:OFF , 1:ON)
+//////////////////////////////////////////////////////////////////////////////
+void Serial_Set_Rts( int AiPort, int AiValue ){
+        int a;
+        int ioctl_ret;
+
+        ioctl_ret=ioctl( AiPort, TIOCMGET, &a );
+
+        // printf( "ret=(%d) a=[%x]\n", ioctl_ret, a );
+
+        a &= ~TIOCM_RTS;
+        if( AiValue ){
+                a |= TIOCM_RTS;
+        }
+        ioctl( AiPort, TIOCMSET, &a);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   DTRã«å€¤ã‚’ã‚»ãƒƒãƒˆã™ã‚‹é–¢æ•°
+///
+/// \return  void
+/// \param   AiPort   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+/// \param   AiValue  ã‚»ãƒƒãƒˆå€¤(0:OFF , 1:ON)
+//////////////////////////////////////////////////////////////////////////////
+void Serial_Set_Dtr( int AiPort, int AiValue ){
+        int a;
+
+        ioctl( AiPort, TIOCMGET, &a );
+        a &= ~TIOCM_DTR;
+        if( AiValue ){
+                a |= TIOCM_DTR;
+        }
+        ioctl( AiPort, TIOCMSET, &a );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   LSRã®å€¤ã‚’å–å¾—ã™ã‚‹é–¢æ•°
+///
+/// \return  void
+/// \param   AiPort   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+/// \param   AiValue  Lsrã®å€¤
+//////////////////////////////////////////////////////////////////////////////
+void Serial_Get_Lsr( int AiPort, int *AiValue ){
+	int lsr;
+
+	ioctl( AiPort, TIOCSERGETLSR, &lsr);
+
+	if( lsr & LSR_FE )
+		printf(" Framing Error!\n");
+	if( lsr & LSR_OE )
+		printf(" Rx Overrun Error!\n");
+	if( lsr & LSR_PE )
+		printf(" Parity Error!\n");
+
+	*AiValue = lsr;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   RIã®å€¤ã‚’å–å¾—ã™ã‚‹é–¢æ•°
+///
+/// \return  int	å–å¾—å€¤(0:OFF , 1:ON)
+/// \param   AiPort   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+//////////////////////////////////////////////////////////////////////////////
+int Serial_Get_Ri( int AiPort ){
+
+	int a;
+
+	ioctl( AiPort, TIOCMGET, &a );
+
+	if( a & TIOCM_RI )
+		return 1;
+	else
+		return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   DCDã®å€¤ã‚’å–å¾—ã™ã‚‹é–¢æ•°
+///
+/// \return  int å–å¾—å€¤(0:OFF , 1:ON)
+/// \param   AiPort   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+//////////////////////////////////////////////////////////////////////////////
+int Serial_Get_Dcd( int AiPort ){
+
+	int a;
+
+	ioctl( AiPort, TIOCMGET, &a );
+
+	if( a & TIOCM_CAR )
+		return 1;
+	else
+		return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   DSRã®å€¤ã‚’å–å¾—ã™ã‚‹é–¢æ•°
+///
+/// \return  int å–å¾—å€¤(0:OFF , 1:ON)
+/// \param   AiPort   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+//////////////////////////////////////////////////////////////////////////////
+int Serial_Get_Dsr( int AiPort ){
+
+	int a;
+
+	ioctl( AiPort, TIOCMGET, &a );
+
+	if( a & TIOCM_DSR )
+		return 1;
+	else
+		return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®å…¥åŠ›ãƒãƒƒãƒ•ã‚¡ã‚’å–å¾—ã—ã¾ã™
+///
+/// \return  void
+/// \param   AiPort   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+/// \param   AiValue  å…¥åŠ›ãƒãƒƒãƒ•ã‚¡ã®å€¤
+//////////////////////////////////////////////////////////////////////////////
+void Serial_Get_In_Buffer( int AiPort, int *AiValue ){
+
+	ioctl( AiPort, FIONREAD, AiValue);
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆã®å‡ºåŠ›ãƒãƒƒãƒ•ã‚¡ã‚’å–å¾—ã—ã¾ã™
+///
+/// \return  void
+/// \param   AiPort   ã‚·ãƒªã‚¢ãƒ«ãƒãƒ¼ãƒˆè¨˜è¿°å­
+/// \param   AiValue  å‡ºåŠ›ãƒãƒƒãƒ•ã‚¡ã®å€¤
+//////////////////////////////////////////////////////////////////////////////
+void Serial_Get_Out_Buffer( int AiPort, int *AiValue ){
+
+	ioctl( AiPort, TIOCOUTQ, AiValue);
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+/// \brief   ã‚·ãƒªã‚¢ãƒ«ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã®ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã‚’å–å¾—ã—ã¾ã™
+///
+/// \return  void
+/// \param   libVer   ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã®ãƒãƒ¼ã‚¸ãƒ§ãƒ³
+//////////////////////////////////////////////////////////////////////////////
+void Serial_Get_Lib_Version( char *libVer ){
+
+	strcpy(libVer,LIB_SERIAL_VERSION);
+
 }
