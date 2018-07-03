@@ -9,19 +9,19 @@ ifeq ($(CPS_SDK_PRODUCT_TYPE),CPS-MC341Q-ADSCX)
   subdirs = SerialFunc libconexio
 endif
 ifeq ($(CPS_SDK_PRODUCT_TYPE),CPS-MCS341Q-DSX)
-  subdirs = cps-drivers 
+  subdirs = cps-drivers SerialFunc libconexio
 endif
 subdirs += libCpsEeprom
 MAKE=make --no-print-directory 
 
 all:	
 	@for subdir in $(subdirs) ; do \
-	(cd $$subdir && $(MAKE)) ;\
+	(cd $$subdir && $(MAKE)) || exit 1;\
 	done
 
 install:
 	@for subdir in $(subdirs) ; do \
-	(cd $$subdir && $(MAKE) install ) ;\
+	(cd $$subdir && $(MAKE) install ) || exit 1 ;\
 	done
 
 release_copy:
@@ -36,6 +36,6 @@ sdk_install:
 
 clean:
 	@for subdir in $(subdirall) ; do \
-	(cd $$subdir && $(MAKE) clean ) ;\
+	(cd $$subdir && $(MAKE) clean ) || exit 1 ;\
 	done
 	rm -f release/*

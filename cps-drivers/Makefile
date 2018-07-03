@@ -5,17 +5,17 @@ TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR}/${CPS_SDK_ROOTFS}
 
 all:	
 	@for subdir in $(subdirs) ; do \
-	(cd $$subdir && $(MAKE)) ;\
+	(cd $$subdir && $(MAKE)) || exit 1;\
 	done
 
 install:
 	@for subdir in $(subdirs) ; do \
-	(cd $$subdir && $(MAKE) install ) ;\
+	(cd $$subdir && $(MAKE) install ) || exit 1;\
 	done
 
 release_copy:
 	@for subdir in $(subdirs) ; do \
-	(cd $$subdir && $(MAKE) release_copy ) ;\
+	(cd $$subdir && $(MAKE) release_copy ) || exit 1;\
 	done
 
 sdk_install:
@@ -23,5 +23,5 @@ sdk_install:
 
 clean:
 	@for subdir in $(subdirs) ; do \
-	(cd $$subdir && $(MAKE) clean ) ;\
+	(cd $$subdir && $(MAKE) clean ) || exit 1;\
 	done

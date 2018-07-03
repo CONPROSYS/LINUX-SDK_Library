@@ -1,0 +1,43 @@
+language: C
+
+sudo:
+  - required
+
+os:
+  - linux
+
+dist:
+  - trusty
+
+compiler:
+  - gcc
+
+before_install:
+  # apt-get install
+  - sudo apt-get install -y gcc-4.7-arm-linux-gnueabi libncurses5-dev binutils-arm-linux-gnueabi 
+  - export CROSS_COMPILE=arm-linux-gnueabi-
+  - export ARCH=arm
+  - sudo ln -s /usr/bin/arm-linux-gnueabi-gcc-4.7 /usr/bin/arm-linux-gnueabi-gcc
+
+  # Download the driver master branch (header )
+  - cd $TRAVIS_BUILD_DIR/../
+  - git clone --depth 1 --branch master https://github.com/CONPROSYS/LINUX-SDK_driver.git
+  # - git clone --depth 1 --branch WIP_cpsaio_sampling_infinity https://github.com/CONPROSYS/LINUX-SDK_driver.git
+  - mv ./LINUX-SDK_driver ./driver
+  - ln -s LINUX-SDK_library lib 
+
+  # export conprosys-sdk
+  - export CPS_SDK_ROOTDIR=$PWD
+  - export CPS_SDK_TARGET_NAME=CPS-MCS341-DSX.novlan
+  - export CPS_SDK_PRODUCT_TYPE=CPS-MCS341Q-DSX
+  - export CPS_SDK_LAN_TYPE=novlan
+
+  - cd $TRAVIS_BUILD_DIR/
+
+before_script:
+ 
+script:
+  - make
+  - sudo make install
+  - sudo ldconfig
+after_script:

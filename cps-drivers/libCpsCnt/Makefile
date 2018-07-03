@@ -22,7 +22,7 @@ install:
 	fi
 
 release_copy:
-	cp -p ./$(TARGET) ../../release/$(TARGET).$(VERSION)
+	cp -p ./$(TARGET) $(CPS_SDK_ROOTDIR)/release/$(TARGET).$(VERSION)
 
 clean:
 	rm -f $(OBJ) $(TARGET)

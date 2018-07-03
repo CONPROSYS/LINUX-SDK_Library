@@ -2,24 +2,103 @@
 #define __LIB_CPS_AIO__
 #include "cps_def.h"
 
-#define AIO_ERR_SUCCESS		0
+/**
+ @~English
+ @name ERROR CODE (define)
+ @~Japanese
+ @name エラーコード
+**/
+/// @{
+
+/**
+ @name INI Group
+**/
+/// @{
+#define AIO_ERR_SUCCESS		0		///< 正常終了
 #define AIO_ERR_INI_RESOURCE	1
 #define AIO_ERR_INI_INTERRUPT	2
-#define AIO_ERR_INI_MEMORY	3
-#define AIO_ERR_INI_REGISTRY	4
+#define AIO_ERR_INI_MEMORY	3 ///< メモリの割り当てに失敗しました
+#define AIO_ERR_INI_REGISTRY	4	///< 設定ファイルのアクセスに失敗しました
 #define AIO_ERR_INI_BOARD_ID	5
+/// @}
 
-#define AIO_ERR_DLL_INVALID_ID		10001
+/**
+ @name DLL Group
+**/
+/// @{
+#define AIO_ERR_DLL_DEVICE_NAME		10000	///< 設定ユーティリティに登録されていないデバイス名が指定されました
+#define AIO_ERR_DLL_INVALID_ID		10001	///< 無効なIDが指定されました
 #define AIO_ERR_DLL_CALL_DRIVER		10002
-#define AIO_ERR_DLL_CREATE_FILE		10003
-#define AIO_ERR_DLL_CLOSE_FILE		10004
+#define AIO_ERR_DLL_CREATE_FILE		10003	///< ハンドルの取得に失敗しました
+#define AIO_ERR_DLL_CLOSE_FILE		10004	///< ハンドルのクローズに失敗しました
 #define AIO_ERR_DLL_CREATE_THREAD	10005
+#define	AIO_ERR_PTR_DEVICE_NAME			10007		///< DeviceNameのポインタがNULLです
+#define	AIO_ERR_PTR_DEVICE				10008		///< DeviceのポインタがNULLです
+#define	AIO_ERR_UNKNOWN_DEVICE			10013		///< デバイスの種類を判別できません
+#define	AIO_ERR_PTR_DEVICE_TYPE			10015		///< DeviceTypeのポインタがNULLです
 
-#define AIO_ERR_INFO_INVALID_DEVICE	10050
-#define AIO_ERR_INFO_NOT_FIND_DEVICE	10051
+#define AIO_ERR_INFO_INVALID_DEVICE	10050	///< 指定したデバイス名称が見つかりません。スペルを確認してください。
+#define AIO_ERR_INFO_NOT_FIND_DEVICE	10051 ///< 利用可能なデバイスが見つかりません
 #define AIO_ERR_INFO_INVALID_INFOTYPE	10052
 
+#define	AIO_ERR_NULL_DEVICE				10100		///< DeviceNameにデバイス名が格納されていません
+#define	AIO_ERR_PTR_ID					10101		///< IdのポインタがNULLです
+#define	AIO_ERR_PTR_ERR_STR				10180		///< ErrorStringのポインタがNULLです
+#define	AIO_ERR_PTR_AI_RANGE			11051		///< AiRangeがNULLです
+#define	AIO_ERR_AI_RANGE				11060		///< AiRangeの値が関数の指定範囲外です
+#define	AIO_ERR_AI_CHANNEL				11420		///< AiChannelの値が関数の指定範囲外です
+#define	AIO_ERR_PTR_AI_DATA				11421		///< AiDataのポインタがNULLです
+#define AIO_ERR_PTR_AI_SAMPLINGTIMES	11580
+#define	AIO_ERR_PTR_AI_MAX_CHANNELS		11720		///< AiMaxChannelsのポインタがNULLです
+#define	AIO_ERR_PTR_AI_RESOLUTION		11740		///< AiResolutionのポインタがNULLです
+#define	AIO_ERR_AO_CHANNEL				13000		///< AoChannelの値が関数の指定範囲外です
+#define	AIO_ERR_AO_CHANNELS				13020		///< AoChannelsの値が関数の指定範囲外です
+#define	AIO_ERR_PTR_AO_DATA				13021		///< AoDataのポインタがNULLです
+#define	AIO_ERR_PTR_AO_RESOLUTION		13040		///< AoResolutionのポインタがNULLです
+#define	AIO_ERR_PTR_AO_MAX_CHANNELS		13080		///< AoMaxChannelsのポインタがNULLです
+#define	AIO_ERR_PTR_AO_RANGE			13111		///< AoRangeのポインタがNULLです
+#define	AIO_ERR_AO_RANGE				13120		///< AoRangeの値が関数の指定範囲外です
 
+#define AIO_ERR_PTR_AI_CHANNELS	19000 ///< AI Channel Null Pointer
+#define AIO_ERR_PTR_AI_SAMPLING_CLOCK	19001 ///< AI Channel Null Pointer
+ #define AIO_ERR_PTR_AO_STATUS	19002	///<
+#define AIO_ERR_PTR_AI_STATUS	19003	///<
+#define AIO_ERR_PTR_AI_SAMPLING_COUNT	19004	///<
+/// @}
+
+/**
+ @name SYS Group
+**/
+/// @{
+
+#define AIO_ERR_SYS_MEMORY										20000
+#define AIO_ERR_SYS_NOT_SUPPORTED					20001	///< 使用しているデバイスではこの関数を使用することができません
+#define AIO_ERR_SYS_BOARD_EXECUTING				20002
+#define AIO_ERR_SYS_USING_OTHER_PROCESS	20003
+#define	AIO_ERR_AI_DEVICE_RANGE			21060		///< AiRangeの値が使用しているデバイスの指定範囲外です
+#define	AIO_ERR_AI_SET_RANGE			21063		///< レンジの設定に失敗しました
+#define	AIO_ERR_AI_DEVICE_CHANNEL		21420		///< AiChannelの値が使用しているデバイスの範囲外です
+#define	AIO_ERR_AD_ERROR				21421		///< AD変換エラーが発生しました
+#define	AIO_ERR_AI_CHANNEL_NUM_OVER		21441		///< 変換チャネル数をオーバーしました、最大チャネルで変換します
+#define AIO_ERR_DLL_AI_OVER_SAMLINGTIMES	21580
+#define AIO_ERR_DLL_AI_FIFO_EMPTY	21584
+#define	AIO_ERR_AO_DEVICE_CHANNEL		23000		///< AoChannelの値が使用しているデバイスの範囲外です
+#define	AIO_ERR_DA_ERROR				23001		///< A変換エラーが発生しました
+#define	AIO_ERR_AO_DATA_RANGE1			23002		///< AoDataに設定するデータはは0～4095の範囲で指定してください
+#define	AIO_ERR_AO_DATA_RANGE2			23003		///< AoDataに設定するデータはは0～65535の範囲で指定してください
+#define	AIO_ERR_AO_CHANNEL_NUM_OVER		23021		///< 変換チャネル数をオーバーしました。最大チャネルで変換します
+#define	AIO_ERR_AO_DEVICE_RANGE			23120		///< AoRangeの値が使用しているデバイスの指定範囲外です
+#define	AIO_ERR_AO_SET_RANGE			23121		///< レンジの設定に失敗しました
+#define	AIO_ERR_START_ERROR				28001		///< モジュール起動時にエラーが発生しました。
+#define	AIO_ERR_NOT_START				28002		///< デバイスはまだ起動していません。
+#define	AIO_ERR_ACCESS_RIGHT			28003		///< アクセス権エラーです。
+#define	AIO_ERR_DLL_TIMEOUT				28004		///< 通信タイムアウトが発生しました。
+#define	AIO_ERR_COMPOSITION				28005		///< 機器構成エラーです。グループID=8以外の設定ではIOアシストサーバーが必要です。
+
+
+#define AIO_ERR_OTHER		99900		///< マジックエラーナンバー
+
+/// @}
 
 #define AIOM_INTERRUPT	0x1300
 
@@ -121,8 +200,9 @@ extern unsigned long ContecCpsAioSetAiChannels( short Id, short AiChannels );
 extern unsigned long ContecCpsAioGetAiChannels( short Id, short *AiChannels );
 extern unsigned long ContecCpsAioStartAi( short Id );
 extern unsigned long ContecCpsAioStopAi( short Id );
-extern unsigned long ContecCpsAioGetAiSamplingData( short Id, short AiSamplingTimes, long AiData[] );
-extern unsigned long ContecCpsAioGetAiSamplingDataEx( short Id, short AiSamplingTimes, double AiData[] );
+extern unsigned long ContecCpsAioGetAiSamplingCount( short Id, long *AiSamplingCount );
+extern unsigned long ContecCpsAioGetAiSamplingData( short Id, long *AiSamplingTimes, long AiData[] );
+extern unsigned long ContecCpsAioGetAiSamplingDataEx( short Id, long *AiSamplingTimes, double AiData[] );
 extern unsigned long ContecCpsAioGetAiStatus( short Id, long *AiStatus );
 extern unsigned long ContecCpsAioSingleAi( short Id, short AiChannel, long *AiData );
 extern unsigned long ContecCpsAioSingleAiEx( short Id, short AiChannel, double *AiData );
@@ -130,6 +210,8 @@ extern unsigned long ContecCpsAioMultiAi( short Id, short AiChannels, long AiDat
 extern unsigned long ContecCpsAioMultiAiEx( short Id, short AiChannels, double AiData[] );
 extern unsigned long ContecCpsAioSetAiSamplingClock( short Id, double AiSamplingClock );
 extern unsigned long ContecCpsAioGetAiSamplingClock( short Id, double *AiSamplingClock );
+extern unsigned long ContecCpsAioSetAiRepeatTimes( short Id, long AiRepeatTimes );
+extern unsigned long ContecCpsAioGetAiRepeatTimes( short Id, long *AiRepeatTimes );
 extern unsigned long ContecCpsAioSetAiEventSamplingTimes( short Id, unsigned long AiSamplingTimes );
 extern unsigned long ContecCpsAioGetAiEventSamplingTimes( short Id, unsigned long *AiSamplingTimes );
 extern unsigned long ContecCpsAioSetAiCalibrationData( short Id, unsigned char select, unsigned char ch, unsigned char range, unsigned short data );
