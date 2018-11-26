@@ -1,5 +1,6 @@
 #ifndef __LIB_CPS_SSI__
 #define __LIB_CPS_SSI__
+#include <sys/ioctl.h>
 #include "cps_def.h"
 
 #define SSI_ERR_SUCCESS		0

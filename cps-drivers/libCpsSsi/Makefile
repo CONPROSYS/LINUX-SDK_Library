@@ -4,7 +4,7 @@ OBJ=libcpsssi.o
 SRC=libcpsssi.c
 CFLAGS= -g -Wall
 INCLUDE= -I$(CPS_SDK_ROOTDIR)/driver/cps-drivers/include -I$(CPS_SDK_ROOTDIR)/lib/cps-drivers/include
-VERSION =1.0.3
+VERSION =1.0.6
 TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR}/${CPS_SDK_ROOTFS}
 
 all:$(OBJ) ${TARGET}

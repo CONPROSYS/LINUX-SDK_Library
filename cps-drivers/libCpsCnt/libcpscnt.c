@@ -33,7 +33,7 @@
  #include "libcpscnt.h"
 #endif
 
-#define CONTEC_CPSCNT_LIB_VERSION	"0.9.5"
+#define CONTEC_CPSCNT_LIB_VERSION	"1.0.3"
 
 
 

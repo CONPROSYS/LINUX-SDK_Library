@@ -1,3 +1,7 @@
+#ifndef __LIB_CPS_DIO__
+#define __LIB_CPS_DIO__
+
+#include <sys/ioctl.h>
 #include "cps_def.h"
 
 #define DIO_POWERSUPPLY_EXTERNAL	0	///< 外部電源
@@ -80,3 +84,4 @@ extern unsigned long ContecCpsDioGetInternalPowerSupply( short Id, unsigned char
 extern unsigned long ContecCpsDioNotifyInterrupt( short Id, short BitNum, short Logic );
 extern unsigned long ContecCpsDioSetInterruptCallBackProc( short Id, PCONTEC_CPS_DIO_INT_CALLBACK cb, void* Param );
 
+#endif

@@ -35,7 +35,7 @@
  #include "libcpsaio.h"
 #endif
 
-#define CONTEC_CPSAIO_LIB_VERSION	"1.0.10"
+#define CONTEC_CPSAIO_LIB_VERSION	"1.0.11"
 
 typedef struct __contec_cps_aio_int_callback__
 {
@@ -463,13 +463,19 @@ unsigned long ContecCpsAioGetAiChannels( short Id, short *AiChannels )
 unsigned long ContecCpsAioSetAiSamplingClock( short Id, double AiSamplingClock )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet;
 
 	/* Set Channel */
 	arg.val = (unsigned long) ( (AiSamplingClock * 1000.0 / 25.0) - 1 );
-	ioctl( Id, IOCTL_CPSAIO_SET_CLOCK_AI, &arg );
+	ulRet = ioctl( Id, IOCTL_CPSAIO_SET_CLOCK_AI, &arg );
 
-	return AIO_ERR_SUCCESS;
+	if( ulRet == 0 ){
+		ulRet = AIO_ERR_SUCCESS;
+	}else{
+		ulRet = AIO_ERR_SAMPLING_CLOCK;
+	}
 
+	return ulRet;
 }
 
 /**
@@ -657,12 +663,13 @@ unsigned long ContecCpsAioGetAiStatus( short Id, long *AiStatus )
 unsigned long ContecCpsAioGetAiSamplingCount( short Id, long *AiSamplingCount )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet;
 
 	// NULL Pointer Checks
 	if( AiSamplingCount == (long *)NULL)
 		return AIO_ERR_PTR_AI_SAMPLING_COUNT;
 
-	ioctl( Id, IOCTL_CPSAIO_GET_SAMPLING_COUNT_AI, &arg );
+	ulRet = ioctl( Id, IOCTL_CPSAIO_GET_SAMPLING_COUNT_AI, &arg );
 
 	*AiSamplingCount = (long)arg.val;
 
@@ -688,7 +695,7 @@ unsigned long ContecCpsAioGetAiSamplingData( short Id, long *AiSamplingTimes, lo
 	unsigned char *tmpAiData = (unsigned char *)NULL;
 	long tmpAiCount;
 	int cnt;
-	int iRet;
+	unsigned long ulRet;
 
 	// NULL Pointer Checks
 	if( AiSamplingTimes == (long *)NULL ){
@@ -698,44 +705,47 @@ unsigned long ContecCpsAioGetAiSamplingData( short Id, long *AiSamplingTimes, lo
 		return AIO_ERR_PTR_AI_DATA;
 	}
 
-	iRet = ContecCpsAioGetAiSamplingCount(Id, &tmpAiCount);
+	ulRet = ContecCpsAioGetAiSamplingCount(Id, &tmpAiCount);
 
-	if( iRet != AIO_ERR_SUCCESS ){
-		return iRet;
+	if( ulRet == AIO_ERR_SUCCESS ){
+
+		/* Sampling Count Checks */
+		if( *AiSamplingTimes > tmpAiCount )
+			*AiSamplingTimes = tmpAiCount;
+
+		if( *AiSamplingTimes >= CPSAIO_MAX_BUFFER )
+			*AiSamplingTimes = CPSAIO_MAX_BUFFER;
+
+		tmpAiData = (unsigned char * )malloc( sizeof(unsigned char)* (*AiSamplingTimes) * 2 );
+
+		if( tmpAiData == (unsigned char *) NULL ){
+			return AIO_ERR_INI_MEMORY;
+		}
 	}
 
-	/* Sampling Count Checks */
-	if( *AiSamplingTimes > tmpAiCount )
-		*AiSamplingTimes = tmpAiCount;
+	if( ulRet == AIO_ERR_SUCCESS ){
+		ulRet = read( Id, tmpAiData , (size_t)(*AiSamplingTimes * 2) );
 
-	if( *AiSamplingTimes >= CPSAIO_MAX_BUFFER )
-		*AiSamplingTimes = CPSAIO_MAX_BUFFER;
+		if( ulRet < 0 ){
+			free(tmpAiData);
+			*AiSamplingTimes = 0;
+			return ulRet;
+		}
 
-	tmpAiData = (unsigned char * )malloc( sizeof(unsigned char)* (*AiSamplingTimes) * 2 );
+		if ( ulRet < *AiSamplingTimes * 2 ){
+			*AiSamplingTimes = ulRet / 2;	// ucharのLengthのため ushortの数にあわせるため 2でわる
+		}
 
-	if( tmpAiData == (unsigned char *) NULL ){
-		return AIO_ERR_INI_MEMORY;
+		for( cnt = 0;cnt < *AiSamplingTimes * 2; cnt += 2 ){
+			AiData[cnt/2] = (long) ( ( tmpAiData[cnt+1] << 8 ) | tmpAiData[cnt]);
+		}
 	}
 
-	iRet = read( Id, tmpAiData , (size_t)(*AiSamplingTimes * 2) );
-
-	if( iRet < 0 ){
+	if( tmpAiData != (unsigned char *) NULL ){
 		free(tmpAiData);
-		*AiSamplingTimes = 0;
-		return iRet;
 	}
 
-	if (iRet < *AiSamplingTimes * 2 ){
-		*AiSamplingTimes = iRet / 2;	// ucharのLengthのため ushortの数にあわせるため 2でわる
-	}
-
-	for( cnt = 0;cnt < *AiSamplingTimes * 2; cnt += 2 ){
-		AiData[cnt/2] = (long) ( ( tmpAiData[cnt+1] << 8 ) | tmpAiData[cnt]);
-	}
-
-	free(tmpAiData);
-
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 /**
 	@~English
@@ -754,12 +764,12 @@ unsigned long ContecCpsAioGetAiSamplingData( short Id, long *AiSamplingTimes, lo
 unsigned long ContecCpsAioGetAiSamplingDataEx( short Id, long *AiSamplingTimes, double AiData[] )
 {
 
-	long *tmpAiData;
+	long *tmpAiData = (long *) NULL;
 	long tmpAiCount;
 	unsigned short AiResolution = 0;
 	int cnt;
 	double dblMin, dblMax;
-	int iRet;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
 
 	// NULL Pointer Checks
 	if( AiSamplingTimes == (long *)NULL ){
@@ -770,33 +780,41 @@ unsigned long ContecCpsAioGetAiSamplingDataEx( short Id, long *AiSamplingTimes, 
 		return AIO_ERR_PTR_AI_DATA;
 	}
 
-	iRet = ContecCpsAioGetAiSamplingCount(Id, &tmpAiCount);
+	ulRet = ContecCpsAioGetAiSamplingCount(Id, &tmpAiCount);
 
-	/* Sampling Count Checks */
-	if( *AiSamplingTimes > tmpAiCount )
-		*AiSamplingTimes = tmpAiCount;
+	if( ulRet == AIO_ERR_SUCCESS ){
+		/* Sampling Count Checks */
+		if( *AiSamplingTimes > tmpAiCount )
+			*AiSamplingTimes = tmpAiCount;
 
-	if( *AiSamplingTimes >= CPSAIO_MAX_BUFFER )
-		*AiSamplingTimes = CPSAIO_MAX_BUFFER;
+		if( *AiSamplingTimes >= CPSAIO_MAX_BUFFER )
+			*AiSamplingTimes = CPSAIO_MAX_BUFFER;
 
-	if( *AiSamplingTimes > tmpAiCount )
-		*AiSamplingTimes = tmpAiCount;
+		if( *AiSamplingTimes > tmpAiCount )
+			*AiSamplingTimes = tmpAiCount;
 
-	tmpAiData = (long*)malloc( sizeof(long) * (*AiSamplingTimes) );
+		tmpAiData = (long*)malloc( sizeof(long) * (*AiSamplingTimes) );
 
-	if( tmpAiData == (long *) NULL ){
-		return AIO_ERR_INI_MEMORY;
+		if( tmpAiData == (long *) NULL ){
+			return AIO_ERR_INI_MEMORY;
+		}
 	}
 
-	iRet = ContecCpsAioGetAiSamplingData( Id, AiSamplingTimes, tmpAiData );
-
-	if( iRet != AIO_ERR_SUCCESS ){
-		free(tmpAiData);
-		*AiSamplingTimes = 0;
-		return iRet;
+	if( ulRet == AIO_ERR_SUCCESS ){
+		ulRet = ContecCpsAioGetAiSamplingData( Id, AiSamplingTimes, tmpAiData );
+	
+		if( ulRet != AIO_ERR_SUCCESS ){
+//			free(tmpAiData);
+			*AiSamplingTimes = 0;
+//			return ulRet;
+		}
 	}
 
-	ContecCpsAioGetAiResolution( Id, &AiResolution );
+	if( ulRet == AIO_ERR_SUCCESS ){
+		ulRet = ContecCpsAioGetAiResolution( Id, &AiResolution );
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){
 
 /*
 	ContecCpsAioGetAiRange( Id, &AiRange ); 
@@ -808,12 +826,16 @@ unsigned long ContecCpsAioGetAiSamplingDataEx( short Id, long *AiSamplingTimes, 
 			break;
 	}
 */	
-	for( cnt = 0;cnt < *AiSamplingTimes; cnt ++){
-		AiData[cnt] =  (double)( tmpAiData[cnt] / pow(2.0,AiResolution) ) *(dblMax - dblMin) + dblMin;
+		for( cnt = 0;cnt < *AiSamplingTimes; cnt ++){
+			AiData[cnt] =  (double)( tmpAiData[cnt] / pow(2.0,AiResolution) ) *(dblMax - dblMin) + dblMin;
+		}
 	}
-	free(tmpAiData);
 
-	return AIO_ERR_SUCCESS;
+	if( tmpAiData != (long *) NULL ){
+		free(tmpAiData);
+	}
+
+	return ulRet;
 }
 
 /**
@@ -881,7 +903,7 @@ unsigned long ContecCpsAioSingleAiEx( short Id, short AiChannel, double *AiData 
 
 	long tmpAiData = 0;
 	unsigned short AiResolution = 0;
-
+	unsigned long ulRet = AIO_ERR_SUCCESS;
 	double dblMin, dblMax;
 
 	// NULL Pointer Checks
@@ -889,10 +911,13 @@ unsigned long ContecCpsAioSingleAiEx( short Id, short AiChannel, double *AiData 
 		return AIO_ERR_PTR_AI_DATA;
 
 
-	ContecCpsAioSingleAi( Id, AiChannel, &tmpAiData );
+	ulRet = ContecCpsAioSingleAi( Id, AiChannel, &tmpAiData );
 
-	ContecCpsAioGetAiResolution( Id, &AiResolution );
+	if( ulRet == AIO_ERR_SUCCESS ){
+		ulRet = ContecCpsAioGetAiResolution( Id, &AiResolution );
+	}
 
+	if( ulRet == AIO_ERR_SUCCESS ){
 /*
 	ContecCpsAioGetAiRange( Id, &AiRange ); 
 	switch( AiRange ){
@@ -903,7 +928,8 @@ unsigned long ContecCpsAioSingleAiEx( short Id, short AiChannel, double *AiData 
 			break;
 	}
 */	
-	*AiData =  (double)( tmpAiData / pow(2.0,AiResolution) ) *(dblMax - dblMin) + dblMin;
+		*AiData =  (double)( tmpAiData / pow(2.0,AiResolution) ) *(dblMax - dblMin) + dblMin;
+	}
 
 	return AIO_ERR_SUCCESS;
 }
@@ -1276,7 +1302,8 @@ unsigned long ContecCpsAioSingleAo( short Id, short AoChannel, long AoData )
 	// Ao Start
 	ContecCpsAioStartAo( Id );
 
-
+	// Ao Stop
+	ContecCpsAioStopAo( Id );
 
 	return AIO_ERR_SUCCESS;
 }
@@ -1352,15 +1379,15 @@ unsigned long ContecCpsAioMultiAo( short Id, short AoChannels, long AoData[] )
 	// Set Sampling Number
 	ContecCpsAioSetAoEventSamplingTimes( Id, 1 );
 
-	// Ai Start
-	ContecCpsAioStartAo( Id );
-
 	for( cnt = 0;cnt < AoChannels; cnt ++ ){
 		arg.val = (long)AoData[cnt];
 		ioctl( Id, IOCTL_CPSAIO_OUTDATA, &arg );
 	}
 
-	// Ai Stop
+	// Ao Start
+	ContecCpsAioStartAo( Id );
+
+	// Ao Stop
 	ContecCpsAioStopAo( Id );
 
 	return AIO_ERR_SUCCESS;

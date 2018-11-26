@@ -4,7 +4,7 @@ OBJ=libcpsaio.o
 SRC=libcpsaio.c
 CFLAGS= -g -Wall
 INCLUDE= -I$(CPS_SDK_ROOTDIR)/driver/cps-drivers/include -I$(CPS_SDK_ROOTDIR)/lib/cps-drivers/include
-VERSION =1.0.9
+VERSION =1.0.11
 TARGET_ROOTFS   := ${CPS_SDK_INSTALL_FULLDIR}/${CPS_SDK_ROOTFS}
 
 all: $(TARGET)

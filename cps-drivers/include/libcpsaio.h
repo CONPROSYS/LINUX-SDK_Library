@@ -1,5 +1,6 @@
 #ifndef __LIB_CPS_AIO__
 #define __LIB_CPS_AIO__
+#include <sys/ioctl.h>
 #include "cps_def.h"
 
 /**
@@ -95,6 +96,7 @@
 #define	AIO_ERR_DLL_TIMEOUT				28004		///< 通信タイムアウトが発生しました。
 #define	AIO_ERR_COMPOSITION				28005		///< 機器構成エラーです。グループID=8以外の設定ではIOアシストサーバーが必要です。
 
+#define AIO_ERR_SAMPLING_CLOCK		21710		///< 
 
 #define AIO_ERR_OTHER		99900		///< マジックエラーナンバー
 
@@ -120,6 +122,13 @@
 #define AIOECU_SRC_START	384
 
 #define CPSAIO_ECU_DESTSRC_SIGNAL(dest, src)	( (src << 16) | dest )
+
+/* Memory Type */
+#define CPSAIO_MEMTYPE_FIFO	0x00
+#define CPSAIO_MEMTYPE_RING	0x01
+
+/* Start Trigger Type */
+#define CPSAIO_STARTTRG_SOFT	0x00
 
 /* Ai Calibration */
 #define CPSAIO_AI_CALIBRATION_SELECT_OFFSET	0
@@ -193,6 +202,8 @@ extern unsigned long ContecCpsAioGetErrorStrings( unsigned long code, char *Str 
 extern unsigned long ContecCpsAioQueryDeviceName( short Index, char *DeviceName, char *Device );
 extern unsigned long ContecCpsAioGetAiResolution( short Id, unsigned short *AiResolution );
 extern unsigned long ContecCpsAioGetAoResolution( short Id, unsigned short *AoResolution );
+extern unsigned long ContecCpsAioGetAiMaxChannels( short Id, short * AiMaxChannels);
+extern unsigned long ContecCpsAioGetAoMaxChannels( short Id, short * AoMaxChannels);
 extern unsigned long ContecCpsAioGetVersion( short Id , unsigned char libVer[] , unsigned char drvVer[] );
 
 /**** Analog Input Functions ****/

@@ -1,3 +1,7 @@
+#ifndef __LIB_CPS_CNT__
+#define __LIB_CPS_CNT__
+
+#include <sys/ioctl.h>
 #include "cps_def.h"
 
 #define CNT_ERR_SUCCESS		0
@@ -109,3 +113,5 @@ extern unsigned long ContecCpsCntNotifyCountUp( short Id , short ChNo , short Re
 // Direct Input / Output Functions(Debug)
 extern unsigned long ContecCpsSsiCommandInp( short Id, unsigned long addr, unsigned char *value );
 extern unsigned long ContecCpsSsiCommandOutp( short Id, unsigned long addr, unsigned char value );
+
+#endif
