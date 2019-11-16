@@ -15,6 +15,10 @@
 #define SSI_ERR_DLL_CREATE_FILE		10003
 #define SSI_ERR_DLL_CLOSE_FILE		10004
 #define SSI_ERR_DLL_CREATE_THREAD	10005
+#define	SSI_ERR_PTR_DEVICE_NAME					10007		///< DeviceNameのポインタがNULLです
+#define	SSI_ERR_PTR_DEVICE						10008		///< DeviceのポインタがNULLです
+#define	SSI_ERR_UNKNOWN_DEVICE					10013		///< デバイスの種類を判別できません
+#define	SSI_ERR_PTR_DEVICE_TYPE					10015		///< DeviceTypeのポインタがNULLです
 
 #define SSI_ERR_INFO_INVALID_DEVICE	10050
 #define SSI_ERR_INFO_NOT_FIND_DEVICE	10051

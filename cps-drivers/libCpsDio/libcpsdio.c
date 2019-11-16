@@ -33,7 +33,12 @@
  #include "libcpsdio.h"
 #endif
 
-#define CONTEC_CPSDIO_LIB_VERSION	"1.0.6"
+#ifdef CONPROSYS_MAKEFILE_VERSION
+	#define CONTEC_CPSDIO_LIB_VERSION CONPROSYS_MAKEFILE_VERSION
+#else
+	#define CONTEC_CPSDIO_LIB_VERSION	"1.0.7"
+#endif
+
 
 /***
  @~English
@@ -106,16 +111,28 @@ unsigned long ContecCpsDioInit( char *DeviceName, short *Id )
 {
 	// open
 	char Name[32];
+	int fd = 0;
 
+	// NULL Pointer Checks
+	if( DeviceName == ( char * )NULL )
+		return DIO_ERR_PTR_DEVICE_NAME;
+	if( Id == ( short * )NULL )
+		return DIO_ERR_DLL_INVALID_ID;	
+
+	if( (strlen(DeviceName) + 5)  > 32 )
+		return DIO_ERR_DLL_CREATE_FILE;
 
 	memset(&contec_cps_dio_cb_list[0], 0, sizeof(contec_cps_dio_cb_list));
 
 	strcpy(Name, "/dev/");
 	strcat(Name, DeviceName);
 
-	*Id = open( Name, O_RDWR );
+	fd = open( Name, O_RDWR );
 
-	if( *Id <= 0 ) return DIO_ERR_DLL_CREATE_FILE;
+	if( fd < 0 )
+		return DIO_ERR_DLL_CREATE_FILE;
+
+	*Id = fd;
 
 	return DIO_ERR_SUCCESS;
 
@@ -179,28 +196,35 @@ unsigned long ContecCpsDioQueryDeviceName( short Index, char *DeviceName, char *
 	char tmpDevName[16];
 	char baseDeviceName[16]="cpsdio";
 	char strNum[2]={0};
-	int findNum=0, cnt, ret;
-
+	int findNum=0, cnt;
+	unsigned long ulRet = DIO_ERR_SUCCESS;
 	short tmpId = 0;
+	int iRet = 0;
+
+	// NULL Pointer Checks
+	if( DeviceName == ( char * )NULL )	return DIO_ERR_PTR_DEVICE_NAME;
+	if( Device == ( char * )NULL )	return DIO_ERR_PTR_DEVICE;
 
 	for(cnt = 0;cnt < CPS_DEVICE_MAX_NUM ; cnt ++ ){
 		sprintf(tmpDevName,"%s%x",baseDeviceName, cnt);
-		ret = ContecCpsDioInit(tmpDevName, &tmpId);
+		ulRet = ContecCpsDioInit(tmpDevName, &tmpId);
 
-		if( ret == 0 ){
+		if( ulRet == DIO_ERR_SUCCESS ){
 			ioctl(tmpId, IOCTL_CPSDIO_GET_DEVICE_NAME, &arg);
 			ContecCpsDioExit(tmpId);
 
-			if(findNum == Index){
-				sprintf(DeviceName,"%s",tmpDevName);
-				sprintf(Device,"%s", arg.str);
-				return DIO_ERR_SUCCESS;
-			}else{
-				findNum ++;
-			}
-			memset(&tmpDevName,0x00, 16);
-			memset(&arg.str, 0x00, sizeof(arg.str)/sizeof(arg.str[0]));
+			if( iRet >= 0 ){
+				if(findNum == Index){
+					sprintf(DeviceName,"%s",tmpDevName);
+					sprintf(Device,"%s", arg.str);
+					return DIO_ERR_SUCCESS;
+				}else{
+					findNum ++;
+				}
 
+				memset(&tmpDevName,0x00, 16);
+				memset(&arg.str, 0x00, sizeof(arg.str)/sizeof(arg.str[0]));
+			}
 		}
 	}
 

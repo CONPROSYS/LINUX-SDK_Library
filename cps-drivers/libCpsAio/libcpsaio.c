@@ -35,7 +35,25 @@
  #include "libcpsaio.h"
 #endif
 
-#define CONTEC_CPSAIO_LIB_VERSION	"1.0.11"
+#ifdef CONPROSYS_MAKEFILE_VERSION
+	#define CONTEC_CPSAIO_LIB_VERSION CONPROSYS_MAKEFILE_VERSION
+#else
+	#define CONTEC_CPSAIO_LIB_VERSION	"1.2.3"
+#endif
+
+#define CONTEC_CPSAIO_LIB_EXCHANGE_NONE	0
+#define CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE	1
+#define CONTEC_CPSAIO_LIB_EXCHANGE_MULTI	2
+
+typedef struct __contec_aio_param__{
+
+	short channel;
+	double clock;	// ver.1.2.3
+	short stopTrig;
+	unsigned long stopTime;
+
+}CONTEC_CPS_AIO_PARAMETER, *PCONTEC_CPS_AIO_PARAMETER;
+
 
 typedef struct __contec_cps_aio_int_callback__
 {
@@ -89,16 +107,40 @@ void _contec_cpsaio_signal_proc( int signo )
 unsigned long _contec_cpsaio_set_exchange( short Id, unsigned char isOutput, unsigned char isMulti )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long request = 0;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	/* Single or Multi */
-	if( isMulti )	arg.val = 1;
-	else	arg.val = 0;
+	switch ( isMulti ){
+		case CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE:
+			arg.val = 0;
+			break;
+		case CONTEC_CPSAIO_LIB_EXCHANGE_MULTI:
+			arg.val = 1;
+			break;
+		default:
+			return AIO_ERR_OTHER;
+	}
 
 	/* Ai or Ao */
-	if( isOutput )
-		ioctl( Id, IOCTL_CPSAIO_SETTRANSFER_MODE_AO, &arg );
-	else
-		ioctl( Id, IOCTL_CPSAIO_SETTRANSFER_MODE_AI, &arg );
+	switch (isOutput)
+	{
+		case CPS_AIO_INOUT_AO:
+			request = IOCTL_CPSAIO_SETTRANSFER_MODE_AO;
+			break;
+		case CPS_AIO_INOUT_AI:
+			request = IOCTL_CPSAIO_SETTRANSFER_MODE_AI;
+			break;	
+		default:
+			return AIO_ERR_OTHER;
+	}
+
+	// arg.inout = isOutput;
+	iRet = ioctl( Id, request, &arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
 
 	return AIO_ERR_SUCCESS;
 
@@ -123,18 +165,141 @@ unsigned long _contec_cpsaio_set_exchange( short Id, unsigned char isOutput, uns
 unsigned long _contec_cpsaio_check_memstatus( short Id, unsigned char isCheckMemFlag )
 {
 	struct cpsaio_ioctl_arg	arg;
-	unsigned long count;
+	unsigned long count = 0;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
-	count = 0;
 	do{
 		usleep( 1 );
-		ioctl( Id, IOCTL_CPSAIO_GETMEMSTATUS , &arg);
-		if( count >= 1000 ) return 1;
+		iRet = ioctl( Id, IOCTL_CPSAIO_GETMEMSTATUS , &arg);
+		if( iRet < 0 ){
+			ulRet = AIO_ERR_DLL_CALL_DRIVER;
+			break;
+		}		
+		
+		if( count >= 1000 ){
+			ulRet = AIO_ERR_INTERNAL_TIMEOUT;
+			break;
+		}
 		count ++;
 	}while(!( arg.val & isCheckMemFlag ) );
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
+
+/**
+ * @~English
+ * @brief 
+ * @param Id : Device ID
+ * @param isOutput : CPS_AIO_INOUT_AI or CPS_AIO_INOUT_AO
+ * @param swapData : CONTEC_CPS_AIO_PARAMETER structure pointer
+ * @par This is internal function.
+ * @return Success: AIO_ERR_SUCCESS
+ * @~Japanese
+ * @brief 
+ * @param Id : デバイスID 
+ * @param isOutput : CPS_AIO_INOUT_AI or CPS_AIO_INOUT_AO
+ * @param swapData : CONTEC_CPS_AIO_PARAMETER ポインタ構造体
+ * @return 成功:  AIO_ERR_SUCCESS
+ */
+unsigned long _contec_cpsaio_singlemulti_getParam(short Id, unsigned char isOutput, PCONTEC_CPS_AIO_PARAMETER swapData )
+{
+
+	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+
+	if( isOutput == CPS_AIO_INOUT_AO){
+
+		//ulRet = ContecCpsAioGetAoChannels(Id, setData.channel);
+
+		//ulRet = ContecCpsAioSetAoEventSamplingTimes( Id, setData.stopTrig );
+	}else if(isOutput == CPS_AIO_INOUT_AI){
+		// Get Ai Channels
+		ulRet = ContecCpsAioGetAiChannels(Id, &(swapData->channel) );
+		// Get Ai Sampling Clock
+		if( ulRet == AIO_ERR_SUCCESS )
+			ulRet = ContecCpsAioGetAiSamplingClock(Id, &(swapData->clock) );
+		// Get Sampling Stop Trigger
+		if( ulRet == AIO_ERR_SUCCESS )
+			ulRet = ContecCpsAioGetAiStopTrigger(Id, &(swapData->stopTrig) );
+		// Get StopTimes
+		if( ulRet == AIO_ERR_SUCCESS )
+			ulRet = ContecCpsAioGetAiStopTimes(Id, &(swapData->stopTime));
+	}
+
+	return ulRet;
+}
+/**
+ * @~English
+ * @brief 
+ * @param Id : Device ID
+ * @param isOutput : CPS_AIO_INOUT_AI or CPS_AIO_INOUT_AO
+ * @param isMulti : 0...CONTEC_CPSAIO_LIB_EXCHANGE_NONE , 1...CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE 2 ... CONTEC_CPSAIO_LIB_EXCHANGE_MULTI
+ * @param setData : CONTEC_CPS_AIO_PARAMETER structure pointer
+ * @par This is internal function.
+ * @return Success: AIO_ERR_SUCCESS
+ * @~Japanese
+ * @brief 
+ * @param Id : デバイスID 
+ * @param isOutput : CPS_AIO_INOUT_AI or CPS_AIO_INOUT_AO
+ * @param isMulti : 0...CONTEC_CPSAIO_LIB_EXCHANGE_NONE , 1...CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE 2 ... CONTEC_CPSAIO_LIB_EXCHANGE_MULTI
+ * @param setData : CONTEC_CPS_AIO_PARAMETER ポインタ構造体
+ * @return 成功:  AIO_ERR_SUCCESS
+ */
+unsigned long _contec_cpsaio_singlemulti_storeParam(short Id, unsigned char isOutput, unsigned char isMulti, CONTEC_CPS_AIO_PARAMETER setData )
+{
+	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+
+	if( isOutput == CPS_AIO_INOUT_AO ){
+		if( isMulti == CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE){
+			
+			_contec_cpsaio_set_exchange(Id, isOutput, isMulti);
+
+			arg.val = setData.channel;
+			ulRet = ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AO, &arg );
+
+		}else{
+			ulRet = ContecCpsAioSetAoChannels(Id, setData.channel);
+		}
+		if( ulRet == AIO_ERR_SUCCESS ){
+			// SetSampling Clock
+			ulRet = ContecCpsAioSetAoSamplingClock( Id, setData.clock );		
+		}
+		// SetSampling Trigger
+		//ulRet = ContecCpsAioSetAoStopTrigger( Id, 0 );
+		if( ulRet == AIO_ERR_SUCCESS ){
+			// Set Sampling Number
+			ulRet = ContecCpsAioSetAoEventSamplingTimes( Id, setData.stopTrig );
+		}
+	}else if(isOutput == CPS_AIO_INOUT_AI){
+		// Set Ai Channel
+		if( isMulti == CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE ){
+			// Exchange Transfer Mode Single Ai
+			_contec_cpsaio_set_exchange( Id, isOutput, isMulti );
+			arg.val = setData.channel;
+
+			ulRet = ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AI, &arg );
+		}else{
+			ulRet = ContecCpsAioSetAiChannels(Id, setData.channel);
+		}
+		if( ulRet == AIO_ERR_SUCCESS ){
+			// SetSampling Clock
+			ulRet = ContecCpsAioSetAiSamplingClock( Id, setData.clock );		
+		}
+		if( ulRet == AIO_ERR_SUCCESS ){
+			// SetSampling Trigger
+			ulRet = ContecCpsAioSetAiStopTrigger( Id, setData.stopTrig );
+		}
+		if( ulRet == AIO_ERR_SUCCESS ){
+			// Set Sampling Number
+			ulRet = ContecCpsAioSetAiStopTimes( Id, setData.stopTime );
+		}
+	}
+
+	return ulRet;
+}
+
 
 /**
 	@~English
@@ -154,34 +319,45 @@ unsigned long ContecCpsAioInit( char *DeviceName, short *Id )
 	// open
 	char Name[32];
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;	
+	int fd = 0;	
 	//unsigned char g = 0, o = 0;
 
 	// NULL Pointer Checks
-	if( DeviceName == ( char * )NULL )	return AIO_ERR_PTR_DEVICE_NAME;
-	if( Id == ( short * )NULL )	return AIO_ERR_DLL_INVALID_ID;
+	if( DeviceName == ( char * )NULL )
+		return AIO_ERR_PTR_DEVICE_NAME;
+	if( Id == ( short * )NULL )
+		return AIO_ERR_DLL_INVALID_ID;
+
+	if( (strlen(DeviceName) + 5)  > 32 )
+		return AIO_ERR_DLL_CREATE_FILE;
 
 	strcpy(Name, "/dev/");
 	strcat(Name, DeviceName);
 
-	*Id = open( Name, O_RDWR );
+	fd = open( Name, O_RDWR );
 
-	if( *Id <= 0 ) return AIO_ERR_DLL_CREATE_FILE;
+	if( fd < 0 ) return AIO_ERR_DLL_CREATE_FILE;
 
-	ioctl( *Id, IOCTL_CPSAIO_INIT, &arg);
+	*Id = fd;
 
-	ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AI_CLK, AIOECU_SRC_AI_CLK );
-	ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AI_START, AIOECU_SRC_START );
-	ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AI_STOP, AIOECU_SRC_AI_STOP );
+	ulRet = ContecCpsAioResetDevice( *Id );
 
-	ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AO_CLK, AIOECU_SRC_AO_CLK );
-	ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AO_START, AIOECU_SRC_START );
-	ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AO_STOP, AIOECU_SRC_AO_STOP_RING );
+	// ioctl( *Id, IOCTL_CPSAIO_INIT, &arg);
+
+	// ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AI_CLK, AIOECU_SRC_AI_CLK );
+	// ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AI_START, AIOECU_SRC_START );
+	// ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AI_STOP, AIOECU_SRC_AI_STOP );
+
+	// ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AO_CLK, AIOECU_SRC_AO_CLK );
+	// ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AO_START, AIOECU_SRC_START );
+	// ContecCpsAioSetEcuSignal(*Id, AIOECU_DEST_AO_STOP, AIOECU_SRC_AO_STOP_RING );
 
 
 //	ContecCpsAioReadAiCalibrationData(*Id, 0, &g, &o);
 //	ContecCpsAioSetAiCalibrationData(*Id, CPSAIO_AI_CALIBRATION_SELECT_OFFSET, 0, CPSAIO_AI_CALIBRATION_RANGE_PM10,  o);
 //	ContecCpsAioSetAiCalibrationData(*Id, CPSAIO_AI_CALIBRATION_SELECT_GAIN, 0, CPSAIO_AI_CALIBRATION_RANGE_PM10,  g);
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 
 }
 
@@ -198,12 +374,19 @@ unsigned long ContecCpsAioInit( char *DeviceName, short *Id )
 unsigned long ContecCpsAioExit( short Id )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
 	arg.val = 0;
 
-	ioctl( Id, IOCTL_CPSAIO_EXIT, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_EXIT, &arg );
+	
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
 	// close
 	close( Id );
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 
 }
 
@@ -221,8 +404,10 @@ unsigned long ContecCpsAioExit( short Id )
 **/
 unsigned long ContecCpsAioGetErrorStrings( unsigned long code, char *Str )
 {
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	//int iRet = 0;
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -247,9 +432,10 @@ unsigned long ContecCpsAioQueryDeviceName( short Index, char *DeviceName, char *
 	char tmpDevName[16];
 	char baseDeviceName[16]="cpsaio";
 	char strNum[2]={0};
-	int findNum=0, cnt, ret;
-
+	int findNum=0, cnt;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
 	short tmpId = 0;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( DeviceName == ( char * )NULL )	return AIO_ERR_PTR_DEVICE_NAME;
@@ -257,20 +443,24 @@ unsigned long ContecCpsAioQueryDeviceName( short Index, char *DeviceName, char *
 
 	for(cnt = 0;cnt < CPS_DEVICE_MAX_NUM ; cnt ++ ){
 		sprintf(tmpDevName,"%s%x",baseDeviceName, cnt);
-		ret = ContecCpsAioInit(tmpDevName, &tmpId);
+		ulRet = ContecCpsAioInit(tmpDevName, &tmpId);
 
-		if( ret == 0 ){
-			ioctl(tmpId, IOCTL_CPSAIO_GET_DEVICE_NAME, &arg);
+		if( ulRet == AIO_ERR_SUCCESS ){
+			iRet = ioctl(tmpId, IOCTL_CPSAIO_GET_DEVICE_NAME, &arg);
 			ContecCpsAioExit(tmpId);
 
-			if(findNum == Index){
-				sprintf(DeviceName,"%s",tmpDevName);
-				sprintf(Device,"%s", arg.str);
-				return AIO_ERR_SUCCESS;
-			}else{
-				findNum ++;
+			if( iRet >= 0 ){
+
+				if(findNum == Index){
+					sprintf(DeviceName,"%s",tmpDevName);
+					sprintf(Device,"%s", arg.str);
+					return AIO_ERR_SUCCESS;
+				}else{
+					findNum ++;
+				}
 			}
-			memset(&tmpDevName,0x00, 16);
+
+			memset(&tmpDevName, 0x00, 16);
 			memset(&arg.str, 0x00, sizeof(arg.str)/sizeof(arg.str[0]));
 
 		}
@@ -278,6 +468,30 @@ unsigned long ContecCpsAioQueryDeviceName( short Index, char *DeviceName, char *
 	
 	return AIO_ERR_INFO_NOT_FIND_DEVICE;
 }
+
+unsigned long ContecCpsAioResetDevice(short Id){
+
+	struct cpsaio_ioctl_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	iRet = ioctl( Id, IOCTL_CPSAIO_INIT, &arg);
+	if( iRet < 0 )
+		return AIO_ERR_DLL_CALL_DRIVER;
+
+	ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_CLK, AIOECU_SRC_AI_CLK );
+	ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_START, AIOECU_SRC_START );
+//	ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_STOP, AIOECU_SRC_AI_STOP );
+
+	ulRet = ContecCpsAioSetAiStopTrigger( Id, CPSAIO_AI_STOPTRG_0 );
+
+	ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AO_CLK, AIOECU_SRC_AO_CLK );
+	ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AO_START, AIOECU_SRC_START );
+	ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AO_STOP, AIOECU_SRC_AO_STOP_RING );		
+
+	return ulRet;
+}
+
 
 //---- Ai/Ao Get Resolution function ------------------
 /**
@@ -295,17 +509,23 @@ unsigned long ContecCpsAioQueryDeviceName( short Index, char *DeviceName, char *
 unsigned long ContecCpsAioGetAiResolution( short Id, unsigned short *AiResolution )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
-	if( AiResolution == ( unsigned short * )NULL )	return AIO_ERR_PTR_AI_RESOLUTION;
+	if( AiResolution == ( unsigned short * )NULL )
+		return AIO_ERR_PTR_AI_RESOLUTION;
 
 	/* Get resolution */
 	arg.inout = CPS_AIO_INOUT_AI;
-	ioctl( Id, IOCTL_CPSAIO_GETRESOLUTION, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_GETRESOLUTION, &arg );
 
-	*AiResolution = (unsigned short)arg.val;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*AiResolution = (unsigned short)arg.val;
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -323,17 +543,22 @@ unsigned long ContecCpsAioGetAiResolution( short Id, unsigned short *AiResolutio
 unsigned long ContecCpsAioGetAoResolution( short Id, unsigned short *AoResolution )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( AoResolution == ( unsigned short * )NULL )	return AIO_ERR_PTR_AO_RESOLUTION;
 
 	/* Get resolution */
 	arg.inout = CPS_AIO_INOUT_AO;
-	ioctl( Id, IOCTL_CPSAIO_GETRESOLUTION, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_GETRESOLUTION, &arg );
 
-	*AoResolution = (unsigned short)arg.val;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*AoResolution = (unsigned short)arg.val;
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 //---- Ai Channel function ----------------------------
@@ -351,15 +576,24 @@ unsigned long ContecCpsAioGetAoResolution( short Id, unsigned short *AoResolutio
 **/
 unsigned long ContecCpsAioGetAiMaxChannels( short Id, short *AiMaxChannels ){
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
-	if( AiMaxChannels == ( short * )NULL )	return AIO_ERR_PTR_AI_MAX_CHANNELS;
+	if( AiMaxChannels == ( short * )NULL )
+		return AIO_ERR_PTR_AI_MAX_CHANNELS;
 
+	memset(&arg, 0, sizeof(struct cpsaio_ioctl_arg));
 	arg.inout = CPS_AIO_INOUT_AI;
-	ioctl( Id, IOCTL_CPSAIO_GETMAXCHANNEL, &arg );
-	*AiMaxChannels = arg.val;
 
-	return AIO_ERR_SUCCESS;
+	iRet = ioctl( Id, IOCTL_CPSAIO_GETMAXCHANNEL, &arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else	
+		*AiMaxChannels = arg.val;
+
+	return ulRet;
 }
 
 /**
@@ -382,8 +616,13 @@ unsigned long ContecCpsAioGetVersion( short Id , unsigned char libVer[] , unsign
 
 	struct cpsaio_ioctl_string_arg	arg;
 	int len;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
-	ioctl( Id, IOCTL_CPSAIO_GET_DRIVER_VERSION, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_GET_DRIVER_VERSION, &arg );
+
+	if( iRet < 0 )
+		return AIO_ERR_DLL_CALL_DRIVER;
 
 	len = sizeof( arg.str ) / sizeof( arg.str[0] );
 	memcpy(drvVer, arg.str, len);
@@ -392,7 +631,7 @@ unsigned long ContecCpsAioGetVersion( short Id , unsigned char libVer[] , unsign
 	len = sizeof( CONTEC_CPSAIO_LIB_VERSION ) /sizeof( unsigned char );
 	memcpy(libVer, CONTEC_CPSAIO_LIB_VERSION, len);
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 
 }
 
@@ -411,14 +650,22 @@ unsigned long ContecCpsAioGetVersion( short Id , unsigned char libVer[] , unsign
 unsigned long ContecCpsAioSetAiChannels( short Id, short AiChannels )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
-	_contec_cpsaio_set_exchange( Id, 0, 1 );
-
+	if( AiChannels > 1){
+		_contec_cpsaio_set_exchange( Id, CPS_AIO_INOUT_AI, CONTEC_CPSAIO_LIB_EXCHANGE_MULTI );
+	}else{
+		_contec_cpsaio_set_exchange( Id, CPS_AIO_INOUT_AI, CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE );
+	}
 	/* Set Channel */
 	arg.val = AiChannels - 1;
-	ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AI, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AI, &arg );
 
-	return AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }
 
 /**
@@ -436,16 +683,23 @@ unsigned long ContecCpsAioSetAiChannels( short Id, short AiChannels )
 unsigned long ContecCpsAioGetAiChannels( short Id, short *AiChannels )
 {
 	struct cpsaio_ioctl_arg	arg;
+	int iRet = 0;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
 
 	// NULL Pointer Checks
 	if( AiChannels == ( short * )NULL )	return AIO_ERR_PTR_AI_CHANNELS;	// AiChannels Null Pointer
 
+	arg.inout = CPS_AIO_INOUT_AI;
+
 	/* Get Channel */
-	ioctl( Id, IOCTL_CPSAIO_GETCHANNEL_AI, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_GETCHANNEL, &arg );
+	if( iRet < 0 ){
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	}else{
+		*AiChannels = (short)(arg.val + 1);
+	}
 
-	*AiChannels = (short)(arg.val + 1);
-
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -463,16 +717,15 @@ unsigned long ContecCpsAioGetAiChannels( short Id, short *AiChannels )
 unsigned long ContecCpsAioSetAiSamplingClock( short Id, double AiSamplingClock )
 {
 	struct cpsaio_ioctl_arg	arg;
-	unsigned long ulRet;
+	int iRet = 0;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
 
 	/* Set Channel */
 	arg.val = (unsigned long) ( (AiSamplingClock * 1000.0 / 25.0) - 1 );
-	ulRet = ioctl( Id, IOCTL_CPSAIO_SET_CLOCK_AI, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_SET_CLOCK_AI, &arg );
 
-	if( ulRet == 0 ){
-		ulRet = AIO_ERR_SUCCESS;
-	}else{
-		ulRet = AIO_ERR_SAMPLING_CLOCK;
+	if( iRet < 0 ){
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
 	}
 
 	return ulRet;
@@ -493,18 +746,128 @@ unsigned long ContecCpsAioSetAiSamplingClock( short Id, double AiSamplingClock )
 unsigned long ContecCpsAioGetAiSamplingClock( short Id, double *AiSamplingClock )
 {
 	struct cpsaio_ioctl_arg	arg;
-
+	int iRet = 0;
+	unsigned long ulRet = AIO_ERR_SUCCESS;	
 	// NULL Pointer Checks
 	if( AiSamplingClock == ( double * )NULL )
 		return AIO_ERR_PTR_AI_SAMPLING_CLOCK;
 
+	arg.inout = CPS_AIO_INOUT_AI;
 	/* Get Channel */
-	ioctl( Id, IOCTL_CPSAIO_GET_CLOCK_AI, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_GET_CLOCK, &arg );
 
-	*AiSamplingClock = (double) ( (arg.val + 1.0 ) * 25.0 ) / 1000.0;
+	if( iRet < 0 ){
+		ulRet = AIO_ERR_DLL_CALL_DRIVER; 
+		*AiSamplingClock = 0;
+	}else{
+		*AiSamplingClock = (double) ( (arg.val + 1.0 ) * 25.0 ) / 1000.0;
+	}
 
-	return AIO_ERR_SUCCESS;
+	return iRet;
 
+}
+
+/**
+	@~English
+	@brief AIO Library set analog input sampling number.
+	@param Id : Device ID
+	@param AiStopTrigger : Stop Trigger Pattern.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief 変換停止条件の設定を行います。
+	@param Id : デバイスID
+	@param AiStopTrigger : 変換停止条件
+	@return 成功: AIO_ERR_SUCCESS				
+**/
+unsigned long ContecCpsAioSetAiStopTrigger( short Id, short AiStopTrigger )
+{
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	struct cpsaio_ioctl_arg	arg;
+	int iRet = 0;
+
+	arg.val = AiStopTrigger;
+	arg.inout = CPS_AIO_INOUT_AI;
+	arg.isDerection = CPS_AIO_DERECTION_SET;
+
+	iRet =  ioctl( Id, IOCTL_CPSAIO_STOPTRIGGER_TYPE, &arg );
+
+	if( iRet < 0 ){
+		ulRet = AIO_ERR_DLL_CALL_DRIVER; 
+	}else{
+		switch (AiStopTrigger)
+		{
+			case CPSAIO_AI_STOPTRG_0:
+				ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_STOP, AIOECU_SRC_AI_STOP );
+				break;
+			case CPSAIO_AI_STOPTRG_4:
+	//			ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_STOP, AIOECU_SRC_START );
+				ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_STOP, CPS_AIO_ECU_SRC_NON_CONNECT );
+				break;
+			default:
+				ulRet = AIO_ERR_OUT_OF_VALUE_AI_STOPTRIGGER;
+		}
+	}
+	return ulRet;
+}
+
+/**
+	@~English
+	@brief AIO Library set analog input sampling number.
+	@param Id : Device ID
+	@param AiSamplingTimes : analog input sample number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief 変換停止条件の取得を行います。
+	@param Id : デバイスID
+	@param AiSamplingTimes :　入力サンプリング数
+	@return 成功: AIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsAioGetAiStopTrigger( short Id, short *AiStopTrigger )
+{
+	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;	
+	int iRet = 0;
+
+	// NULL Pointer Checks
+	if( AiStopTrigger == ( short * )NULL )	
+		return AIO_ERR_PTR_AI_STOPTRIGGER;
+
+	arg.inout = CPS_AIO_INOUT_AI;
+	arg.isDerection = CPS_AIO_DERECTION_GET;
+
+	iRet = ioctl( Id, IOCTL_CPSAIO_STOPTRIGGER_TYPE, &arg );
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*AiStopTrigger = arg.val;
+
+	return ulRet;
+}
+
+/**
+	@~English
+	@brief AIO Library get analog input sampling start trigger.
+	@param Id : Device ID
+	@param AiStartTrigger : analog input start trigger.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief サンプリング数の取得を行います。
+	@param Id : デバイスID
+	@param AiSamplingTimes :　サンプリング数
+	@return 成功: AIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsAioSetAiStartTrigger( short Id, short AiStartTrigger )
+{
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	switch (AiStartTrigger)
+	{
+		case CPSAIO_AI_STARTTRG_SOFT:	//Soft Trigger
+			ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_START, AIOECU_SRC_START );
+			break;
+		default:
+			ulRet = AIO_ERR_OUT_OF_VALUE_AI_STARTTRIGGER;
+	}
+	return ulRet;
 }
 
 /**
@@ -519,17 +882,23 @@ unsigned long ContecCpsAioGetAiSamplingClock( short Id, double *AiSamplingClock 
 	@param AiSamplingTimes :　入力サンプリング数
 	@return 成功: AIO_ERR_SUCCESS
 **/
-unsigned long ContecCpsAioSetAiEventSamplingTimes( short Id, unsigned long AiSamplingTimes )
+unsigned long ContecCpsAioSetAiStopTimes( short Id, unsigned long AiSamplingTimes )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;	
+	int iRet = 0;
 
 	/* Set Sampling number( before Trigger ) */
 	arg.val = AiSamplingTimes - 1;
-	ioctl( Id, IOCTL_CPSAIO_SET_SAMPNUM_AI, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_SET_SAMPNUM_AI, &arg );
 
-	return AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 
 }
+
 /**
 	@~English
 	@brief AIO Library get analog input sampling number.
@@ -542,20 +911,152 @@ unsigned long ContecCpsAioSetAiEventSamplingTimes( short Id, unsigned long AiSam
 	@param AiSamplingTimes :　サンプリング数
 	@return 成功: AIO_ERR_SUCCESS
 **/
-unsigned long ContecCpsAioGetAiEventSamplingTimes( short Id, unsigned long *AiSamplingTimes )
+unsigned long ContecCpsAioGetAiStopTimes( short Id, unsigned long *AiSamplingTimes )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( AiSamplingTimes == ( unsigned long * )NULL )
 		return AIO_ERR_PTR_AI_SAMPLINGTIMES;
 
+	arg.inout = CPS_AIO_INOUT_AI;
 	/* Get Sampling number( before Trigger ) */
-	ioctl( Id, IOCTL_CPSAIO_GET_SAMPNUM_AI, &arg );
-	*AiSamplingTimes = arg.val + 1;
+	iRet = ioctl( Id, IOCTL_CPSAIO_GET_SAMPNUM, &arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*AiSamplingTimes = arg.val + 1;
+
+	return ulRet;
+
+}
+
+/**
+	@~English
+	@brief AIO Library get analog input sampling number.
+	@param Id : Device ID
+	@param AiSamplingTimes : analog input sample number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定サンプリング回数格納イベントを発生させるためのサンプリング数の設定を行います。
+	@param Id : デバイスID
+	@param AiSamplingTimes :　サンプリング数
+	@return 成功: AIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsAioSetAiEventSamplingTimes( short Id, unsigned long AiSamplingTimes )
+{
+	// struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;	
+	// int iRet = 0;
+
+	// arg.inout = CPS_AIO_INOUT_AI;
+	// arg.val = AiSamplingTimes;
+	// iRet = ioctl( Id, IOCTL_CPSAIO_SETXXXXX, &arg );
+
+	//if( iRet < 0 )
+	//	ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	
+
+	return ulRet;
+}
+
+/**
+	@~English
+	@brief AIO Library get analog input sampling number.
+	@param Id : Device ID
+	@param AiSamplingTimes : analog input sample number.
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief 指定サンプリング回数格納イベントを発生させるためのサンプリング数の取得を行います。
+	@param Id : デバイスID
+	@param AiSamplingTimes :　サンプリング数
+	@return 成功: AIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsAioGetAiEventSamplingTimes( short Id, unsigned long *AiSamplingTimes )
+{
+	// struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;	
+	// int iRet = 0;
+
+	// NULL Pointer Checks
+	if( AiSamplingTimes == ( unsigned long * )NULL )
+		return AIO_ERR_PTR_AI_SAMPLINGTIMES;
+
+	// arg.inout = CPS_AIO_INOUT_AI;
+	// iRet = ioctl( Id, IOCTL_CPSAIO_GETXXXXX, &arg );
+
+	//if( iRet < 0 )
+	//	ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	//else
+	//	*AiStopTrigger = arg.val;
+
+	return ulRet;
+}
+
+
+//--- Memory Functions -------------------------
+/**
+	@~English
+	@brief AIO Library start analog input sampling.
+	@param Id : Device ID
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力メモリの設定。
+	@param Id : デバイスID
+	@note FIFO 固定のため、設定なし
+	@return 成功: AIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsAioSetAiMemoryType( short Id , unsigned short AiMemoryType)
+{
+	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	arg.inout = CPS_AIO_INOUT_AI;
+	arg.isDerection = CPS_AIO_DERECTION_SET;
+	arg.val = AiMemoryType;
+	iRet = ioctl( Id, IOCTL_CPSAIO_MEMORY_TYPE, &arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
+}
+
+/**
+	@~English
+	@brief AIO Library start analog input sampling.
+	@param Id : Device ID
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力メモリの取得。
+	@param Id : デバイスID
+	@note FIFOのみ。
+	@return 成功: AIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsAioGetAiMemoryType( short Id , unsigned short *AiMemoryType)
+{
+	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	// NULL Pointer Checks
+	if( AiMemoryType == ( unsigned short * )NULL )
+		return AIO_ERR_OTHER;
+
+	arg.inout = CPS_AIO_INOUT_AI;
+	arg.isDerection = CPS_AIO_DERECTION_GET;	
+	iRet = ioctl( Id, IOCTL_CPSAIO_MEMORY_TYPE, &arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else	
+		*AiMemoryType = arg.val;
 
 	return AIO_ERR_SUCCESS;
-
 }
 
 //--- Running Functions ------------------------
@@ -572,37 +1073,29 @@ unsigned long ContecCpsAioGetAiEventSamplingTimes( short Id, unsigned long *AiSa
 unsigned long ContecCpsAioStartAi( short Id )
 {
 	struct cpsaio_ioctl_arg	arg;
-	unsigned long count = 0;
+	unsigned long ulRepeatTime = 1;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+	
+//	arg.inout = CPS_AIO_INOUT_AI;
+	iRet = ioctl( Id, IOCTL_CPSAIO_START_AI, 0 );
 
-	ioctl( Id, IOCTL_CPSAIO_START_AI, 0 );
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
 
-	do{
-		usleep( 1 );
-		ioctl( Id, IOCTL_CPSAIO_INSTATUS, &arg );
-		if( count >= 1000 ) return 1;
-		count ++;
-	}while( arg.val & CPS_AIO_AI_STATUS_START_DISABLE );
+	// Ver.1.1.1 without CPS_AIO_AI_STATUS_START_DISABLE 
+	// implement cpsaio driver 
+	// do{
+	// 	usleep( 1 );
+	// 	ioctl( Id, IOCTL_CPSAIO_INSTATUS, &arg );
+	// 	if( count >= 1000 ) return 1;
+	// 	count ++;
+	// }while( arg.val & CPS_AIO_AI_STATUS_START_DISABLE );
+	//
+	////softtrigger only out pulse start
+	//ioctl( Id, IOCTL_CPSAIO_SET_OUTPULSE0, 0 );
 
-	//softtrigger only out pulse start
-	ioctl( Id, IOCTL_CPSAIO_SET_OUTPULSE0, 0 );
-
-	count = 0;
-	do{
-		usleep( 1 );
-		ioctl( Id, IOCTL_CPSAIO_GET_INTERRUPT_FLAG_AI , &arg);
-		if( count >= 1000 ) return 2;
-		count ++;
-	}while(!( arg.val & CPS_AIO_AI_STATUS_MOTION_END ) );
-
-////////////////////// Ver.1.0.6
-	if( arg.val & CPS_AIO_AI_STATUS_MOTION_END ) {
-		arg.val = CPS_AIO_AI_STATUS_MOTION_END;
-		ioctl( Id, IOCTL_CPSAIO_SET_INTERRUPT_FLAG_AI , &arg);
-	}
-////////////////////// Ver.1.0.6
-
-
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -617,7 +1110,15 @@ unsigned long ContecCpsAioStartAi( short Id )
 **/
 unsigned long ContecCpsAioStopAi( short Id )
 {
-	ioctl( Id, IOCTL_CPSAIO_STOP_AI, 0 );
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+//	arg.inout = CPS_AIO_INOUT_AI;	
+	iRet = ioctl( Id, IOCTL_CPSAIO_STOP_AI, 0 );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
 	return AIO_ERR_SUCCESS;
 }
 
@@ -636,16 +1137,23 @@ unsigned long ContecCpsAioStopAi( short Id )
 unsigned long ContecCpsAioGetAiStatus( short Id, long *AiStatus )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( AiStatus == ( long * )NULL )
 		return AIO_ERR_PTR_AI_STATUS;
 
-	ioctl( Id, IOCTL_CPSAIO_INSTATUS, &arg );
+//	arg.inout = CPS_AIO_INOUT_AI;
 
-	*AiStatus = (long)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_INSTATUS, &arg );
 
-	return AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*AiStatus = (long)arg.val;
+
+	return ulRet;
 }
 
 /**
@@ -663,17 +1171,20 @@ unsigned long ContecCpsAioGetAiStatus( short Id, long *AiStatus )
 unsigned long ContecCpsAioGetAiSamplingCount( short Id, long *AiSamplingCount )
 {
 	struct cpsaio_ioctl_arg	arg;
-	unsigned long ulRet;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( AiSamplingCount == (long *)NULL)
 		return AIO_ERR_PTR_AI_SAMPLING_COUNT;
 
-	ulRet = ioctl( Id, IOCTL_CPSAIO_GET_SAMPLING_COUNT_AI, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_GET_SAMPLING_COUNT_AI, &arg );
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*AiSamplingCount = (long)arg.val;
 
-	*AiSamplingCount = (long)arg.val;
-
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -693,9 +1204,10 @@ unsigned long ContecCpsAioGetAiSamplingCount( short Id, long *AiSamplingCount )
 unsigned long ContecCpsAioGetAiSamplingData( short Id, long *AiSamplingTimes, long AiData[] )
 {
 	unsigned char *tmpAiData = (unsigned char *)NULL;
-	long tmpAiCount;
-	int cnt;
-	unsigned long ulRet;
+	long tmpAiCount = 0;
+	int cnt = 0;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( AiSamplingTimes == (long *)NULL ){
@@ -721,12 +1233,11 @@ unsigned long ContecCpsAioGetAiSamplingData( short Id, long *AiSamplingTimes, lo
 		if( tmpAiData == (unsigned char *) NULL ){
 			return AIO_ERR_INI_MEMORY;
 		}
-	}
 
-	if( ulRet == AIO_ERR_SUCCESS ){
-		ulRet = read( Id, tmpAiData , (size_t)(*AiSamplingTimes * 2) );
+		iRet = read( Id, tmpAiData , (size_t)(*AiSamplingTimes * 2) );
 
-		if( ulRet < 0 ){
+		if( iRet < 0 ){
+			ulRet = AIO_ERR_DLL_CALL_DRIVER;
 			free(tmpAiData);
 			*AiSamplingTimes = 0;
 			return ulRet;
@@ -765,9 +1276,9 @@ unsigned long ContecCpsAioGetAiSamplingDataEx( short Id, long *AiSamplingTimes, 
 {
 
 	long *tmpAiData = (long *) NULL;
-	long tmpAiCount;
+	long tmpAiCount = 0;
 	unsigned short AiResolution = 0;
-	int cnt;
+	int cnt = 0;
 	double dblMin, dblMax;
 	unsigned long ulRet = AIO_ERR_SUCCESS;
 
@@ -798,9 +1309,7 @@ unsigned long ContecCpsAioGetAiSamplingDataEx( short Id, long *AiSamplingTimes, 
 		if( tmpAiData == (long *) NULL ){
 			return AIO_ERR_INI_MEMORY;
 		}
-	}
 
-	if( ulRet == AIO_ERR_SUCCESS ){
 		ulRet = ContecCpsAioGetAiSamplingData( Id, AiSamplingTimes, tmpAiData );
 	
 		if( ulRet != AIO_ERR_SUCCESS ){
@@ -856,33 +1365,106 @@ unsigned long ContecCpsAioSingleAi( short Id, short AiChannel, long *AiData )
 {
 
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+	unsigned long count = 0;
+
+	short AiMaxChannel = 0;
+	CONTEC_CPS_AIO_PARAMETER swapData, singleData;
 
 	// NULL Pointer Checks
 	if( AiData == (long*)NULL )
 		return AIO_ERR_PTR_AI_DATA;
 
-	// Exchange Transfer Mode Single Ai
-	_contec_cpsaio_set_exchange( Id, 0, 0 );
+	ulRet = ContecCpsAioGetAiMaxChannels(Id, &AiMaxChannel);
 
-	// Set Ai Channel
-	arg.val = AiChannel;
-	ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AI, &arg );
+	if( ulRet != AIO_ERR_SUCCESS )
+		return ulRet;
 
-	// Set Sampling Number
-	ContecCpsAioSetAiEventSamplingTimes( Id, 1 );
+	if( AiChannel >= AiMaxChannel ){
+		return AIO_ERR_OTHER;// Ai channel error
+	}
 
-	// Ai Start
-	ContecCpsAioStartAi( Id );
+	ulRet = _contec_cpsaio_singlemulti_getParam(Id, CPS_AIO_INOUT_AI, &swapData);
+	
+	if( ulRet == AIO_ERR_SUCCESS ){
+		singleData.channel = AiChannel; // Set Ai Channel
+		singleData.stopTrig = 0; // SetSampling Trigger
+		singleData.stopTime = 1; // Set Sampling Number
+		singleData.clock = 10.0; // 10 usec
 
-	// Single Ai の場合、DREフラグをチェックする
-	_contec_cpsaio_check_memstatus( Id, CPU_AIO_MEMSTATUS_DRE );
+		ulRet = _contec_cpsaio_singlemulti_storeParam(Id, CPS_AIO_INOUT_AI, CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE, singleData);
+		//_contec_cpsaio_set_exchange( Id, CPS_AIO_INOUT_AI, CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE );
 
-	ioctl( Id, IOCTL_CPSAIO_INDATA, &arg );
-	*AiData = (long)( arg.val );
+		//arg.val = AiChannel;
+		//ulRet = ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AI, &arg );
+
+		// SetSampling Trigger
+		//ulRet = ContecCpsAioSetAiStopTrigger( Id, CPSAIO_AI_STOPTRG_0 );
+		// Set Sampling Number
+		//ContecCpsAioSetAiEventSamplingTimes( Id, 1 );
+		//ulRet = ContecCpsAioSetAiStopTimes( Id, 1 );
+	}
+
+	// Memory Clear 
+	if( ulRet == AIO_ERR_SUCCESS ){
+		ulRet = ContecCpsAioResetAiMemory( Id );
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){	
+		// Ai Start
+		ulRet = ContecCpsAioStartAi( Id );
+
+		// Ver.1.1.1 Infinity Sampling, does not see motion end flag
+		// iRet = ContecCpsAioGetAiRepeatTimes(Id, &ulRepeatTime);
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){	
+		count = 0;
+		do{
+			usleep( 1 );
+			iRet = ioctl( Id, IOCTL_CPSAIO_GET_INTERRUPT_FLAG_AI , &arg);
+			if( iRet < 0 ){
+				ulRet = AIO_ERR_DLL_CALL_DRIVER;
+				break;
+			}
+			if( count >= 1000 ){
+				ulRet = AIO_ERR_INTERNAL_TIMEOUT;
+				break;
+			}
+			count ++;
+		}while(!( arg.val & CPS_AIO_AI_FLAG_MOTION_END ) );
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){		
+////////////////////// Ver.1.0.6
+		if( arg.val & CPS_AIO_AI_FLAG_MOTION_END ) {
+			arg.val = CPS_AIO_AI_FLAG_MOTION_END;
+			iRet = ioctl( Id, IOCTL_CPSAIO_SET_INTERRUPT_FLAG_AI , &arg);
+			if( iRet < 0 )
+				ulRet = AIO_ERR_DLL_CALL_DRIVER;		
+		}
+////////////////////// Ver.1.0.6
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){	
+		// Single Ai の場合、DREフラグをチェックする
+		ulRet = _contec_cpsaio_check_memstatus( Id, CPU_AIO_MEMSTATUS_DRE );
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){		
+		iRet = ioctl( Id, IOCTL_CPSAIO_INDATA, &arg );
+		if( iRet < 0 )
+			return AIO_ERR_DLL_CALL_DRIVER;
+		else
+			*AiData = (long)( arg.val );
+	}
 
 	ContecCpsAioStopAi( Id );
 
-	return AIO_ERR_SUCCESS;
+	_contec_cpsaio_singlemulti_storeParam(Id, CPS_AIO_INOUT_AI, CONTEC_CPSAIO_LIB_EXCHANGE_NONE, swapData);
+
+	return ulRet;
 }
 /**
 	@~English
@@ -904,12 +1486,11 @@ unsigned long ContecCpsAioSingleAiEx( short Id, short AiChannel, double *AiData 
 	long tmpAiData = 0;
 	unsigned short AiResolution = 0;
 	unsigned long ulRet = AIO_ERR_SUCCESS;
-	double dblMin, dblMax;
+	double dblMin = 0.0, dblMax = 0.0;
 
 	// NULL Pointer Checks
 	if( AiData == (double *)NULL )
 		return AIO_ERR_PTR_AI_DATA;
-
 
 	ulRet = ContecCpsAioSingleAi( Id, AiChannel, &tmpAiData );
 
@@ -931,7 +1512,7 @@ unsigned long ContecCpsAioSingleAiEx( short Id, short AiChannel, double *AiData 
 		*AiData =  (double)( tmpAiData / pow(2.0,AiResolution) ) *(dblMax - dblMin) + dblMin;
 	}
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 /**
 	@~English
@@ -948,31 +1529,16 @@ unsigned long ContecCpsAioSingleAiEx( short Id, short AiChannel, double *AiData 
 unsigned long ContecCpsAioSetAiRepeatTimes( short Id, long AiRepeatTimes )
 {
 	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
-	if( AiRepeatTimes == 0 ){
-		// infinity Sampling Times
-		ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_CLK, AIOECU_SRC_AI_CLK );
-		if( ulRet != AIO_ERR_SUCCESS )
-				return ulRet;
+	// struct cpsaio_ioctl_arg	arg;
 
-		ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_START, AIOECU_SRC_START );
-		if( ulRet != AIO_ERR_SUCCESS )
-			return ulRet;
+	// arg.inout = CPS_AIO_INOUT_AI;
+	// arg.val = AiRepeatTimes;
+	// iRet = ioctl( Id, IOCTL_CPSAIO_SETXXXXX, &arg );
 
-		ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_STOP, AIOECU_SRC_START );
-
-	}else{
-		ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_CLK, AIOECU_SRC_AI_CLK );
-		if( ulRet != AIO_ERR_SUCCESS )
-			return ulRet;
-
-		ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_START, AIOECU_SRC_START );
-		if( ulRet != AIO_ERR_SUCCESS )
-			return ulRet;
-
-		ulRet = ContecCpsAioSetEcuSignal(Id, AIOECU_DEST_AI_STOP, AIOECU_SRC_AI_STOP );
-
-	}
+	//	if( iRet < 0 )
+	//	ulRet = AIO_ERR_DLL_CALL_DRIVER;
 
 	return ulRet;
 }
@@ -989,9 +1555,22 @@ unsigned long ContecCpsAioSetAiRepeatTimes( short Id, long AiRepeatTimes )
 	@return 成功: AIO_ERR_SUCCESS
 **/
 unsigned long ContecCpsAioGetAiRepeatTimes( short Id, long *AiRepeatTimes ){
-	return AIO_ERR_SUCCESS;
-}
+	// struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	// int iRet = 0;
 
+	// NULL Pointer Checks
+	// if( AiRepeatTimes == ( long * )NULL )	return ;
+
+	// arg.inout = CPS_AIO_INOUT_AI;
+	// iRet = ioctl( Id, IOCTL_CPSAIO_GETXXXXX, &arg );
+	// if( iRet < 0 )
+	//	ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	// else
+	//	*AiRepeatTimes = arg.val;
+
+	return ulRet;
+}
 
 /**
 	@~English
@@ -1012,32 +1591,111 @@ unsigned long ContecCpsAioMultiAi( short Id, short AiChannels, long AiData[] )
 
 	struct cpsaio_ioctl_arg	arg;
 	int cnt;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+	unsigned long count = 0;
+	CONTEC_CPS_AIO_PARAMETER swapData, singleData;
+
+	short AiMaxChannel;
 
 	// NULL Pointer Checks
 	if( AiData == (long*)NULL )
 		return AIO_ERR_PTR_AI_DATA;
 
-	ContecCpsAioSetAiChannels(Id, AiChannels );
+	ulRet = ContecCpsAioGetAiMaxChannels(Id, &AiMaxChannel);
 
-	// Set Sampling Number
-	ContecCpsAioSetAiEventSamplingTimes( Id, 1 );
+	if( ulRet != AIO_ERR_SUCCESS )
+		return ulRet;
 
-	// Ai Start
-	ContecCpsAioStartAi( Id );
-
-	// Multi Ai の場合、MDREフラグをチェックする
-	_contec_cpsaio_check_memstatus( Id, CPU_AIO_MEMSTATUS_MDRE );
-
-	for( cnt = 0;cnt < AiChannels; cnt ++ ){
-		ioctl( Id, IOCTL_CPSAIO_INDATA, &arg );
-		AiData[cnt] = (long)( arg.val );
+	if( AiChannels > AiMaxChannel ){
+		return AIO_ERR_OTHER;// Ai channel error
 	}
 
+	ulRet = _contec_cpsaio_singlemulti_getParam(Id, CPS_AIO_INOUT_AI, &swapData);
+
+	if( ulRet == AIO_ERR_SUCCESS ){	
+		singleData.channel = AiChannels; // Set Ai Channel
+		singleData.stopTrig = 0; // SetSampling Trigger
+		singleData.stopTime = 1; // Set Sampling Number
+		singleData.clock = 10.0 * AiChannels; // 10 x AiChannels (usec)
+
+		ulRet = _contec_cpsaio_singlemulti_storeParam(Id, CPS_AIO_INOUT_AI, CONTEC_CPSAIO_LIB_EXCHANGE_MULTI, singleData);
+
+
+		//ulRet = ContecCpsAioSetAiChannels(Id, AiChannels );
+
+		// SetSampling Trigger
+		//ulRet = ContecCpsAioSetAiStopTrigger( Id, CPSAIO_AI_STOPTRG_0 );
+
+		// Set Sampling Number
+		//ContecCpsAioSetAiEventSamplingTimes( Id, 1 );
+		//ulRet = ContecCpsAioSetAiStopTimes(Id, 1);
+	}
+
+	// Memory Clear 
+	if( ulRet == AIO_ERR_SUCCESS ){
+		ulRet = ContecCpsAioResetAiMemory( Id );
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){	
+		// Ai Start
+		ulRet = ContecCpsAioStartAi( Id );
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){
+		// 
+		count = 0;
+		do{
+			usleep( 1 );
+			iRet = ioctl( Id, IOCTL_CPSAIO_GET_INTERRUPT_FLAG_AI , &arg);
+			if( iRet < 0 ){
+				ulRet = AIO_ERR_DLL_CALL_DRIVER;
+				break;
+			}
+			if( count >= 1000 ){
+				ulRet = AIO_ERR_INTERNAL_TIMEOUT;
+				break;
+			}
+			count ++;
+		}while(!( arg.val & CPS_AIO_AI_FLAG_MOTION_END ) );
+
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){
+////////////////////// Ver.1.0.6
+		if( arg.val & CPS_AIO_AI_FLAG_MOTION_END ) {
+			arg.val = CPS_AIO_AI_FLAG_MOTION_END;
+			iRet = ioctl( Id, IOCTL_CPSAIO_SET_INTERRUPT_FLAG_AI , &arg);
+			if( iRet < 0 )
+				ulRet = AIO_ERR_DLL_CALL_DRIVER;			
+		}
+////////////////////// Ver.1.0.6
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){	
+		// Multi Ai の場合、MDREフラグをチェックする
+		ulRet = _contec_cpsaio_check_memstatus( Id, CPU_AIO_MEMSTATUS_MDRE );
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){		
+		for( cnt = 0;cnt < AiChannels; cnt ++ ){
+			iRet = ioctl( Id, IOCTL_CPSAIO_INDATA, &arg );
+			if( iRet < 0 )
+				ulRet = AIO_ERR_DLL_CALL_DRIVER;
+			else if( ulRet == AIO_ERR_SUCCESS )			
+				AiData[cnt] = (long)( arg.val );
+		}
+	}
+
+	
 	// Ai Stop
 	ContecCpsAioStopAi( Id );
 
+	_contec_cpsaio_singlemulti_storeParam(Id, CPS_AIO_INOUT_AI, CONTEC_CPSAIO_LIB_EXCHANGE_NONE, swapData);
+
 	return AIO_ERR_SUCCESS;
 }
+
 /**
 	@~English
 	@brief AIO Library get multiple channels of analog input device sampling one data.( double type )
@@ -1059,6 +1717,7 @@ unsigned long ContecCpsAioMultiAiEx( short Id, short AiChannels, double AiData[]
 	unsigned short AiResolution = 0;
 	int cnt;
 	double dblMin, dblMax;
+	unsigned long ulRet = AIO_ERR_SUCCESS;	
 
 	// NULL Pointer Checks
 	if( AiData == ( double * )NULL )
@@ -1070,10 +1729,13 @@ unsigned long ContecCpsAioMultiAiEx( short Id, short AiChannels, double AiData[]
 		return AIO_ERR_INI_MEMORY;
 	}
 
-	ContecCpsAioMultiAi( Id, AiChannels, tmpAiData );
+	ulRet = ContecCpsAioMultiAi( Id, AiChannels, tmpAiData );
 
-	ContecCpsAioGetAiResolution( Id, &AiResolution );
+	if( ulRet == AIO_ERR_SUCCESS ){
+		ulRet = ContecCpsAioGetAiResolution( Id, &AiResolution );
+	}
 
+	if( ulRet == AIO_ERR_SUCCESS ){
 /*
 	ContecCpsAioGetAiRange( Id, &AiRange ); 
 	switch( AiRange ){
@@ -1084,12 +1746,65 @@ unsigned long ContecCpsAioMultiAiEx( short Id, short AiChannels, double AiData[]
 			break;
 	}
 */	
-	for( cnt = 0;cnt < AiChannels; cnt ++){
-		AiData[cnt] =  (double)( tmpAiData[cnt] / pow(2.0,AiResolution) ) *(dblMax - dblMin) + dblMin;
+		for( cnt = 0;cnt < AiChannels; cnt ++){
+			AiData[cnt] =  (double)( tmpAiData[cnt] / pow(2.0,AiResolution) ) *(dblMax - dblMin) + dblMin;
+		}
 	}
+
 	free(tmpAiData);
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
+}
+
+//--- Reset Functions ------------------------
+/**
+	@~English
+	@brief AIO Library reset status of analog input.
+	@param Id : Device ID
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力デバイスのステータスリセット。
+	@param Id : デバイスID
+	@return 成功: AIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsAioResetAiStatus( short Id )
+{
+	struct cpsaio_ioctl_arg	arg;	
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	arg.inout = CPS_AIO_INOUT_AI;
+	iRet = ioctl( Id, IOCTL_CPSAIO_RESET_STATUS, &arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
+}
+
+/**
+	@~English
+	@brief AIO Library reset memory of analog input.
+	@param Id : Device ID
+	@return Success: AIO_ERR_SUCCESS
+	@~Japanese
+	@brief アナログ入力デバイスのメモリリセット。
+	@param Id : デバイスID
+	@return 成功: AIO_ERR_SUCCESS
+**/
+unsigned long ContecCpsAioResetAiMemory( short Id )
+{
+	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	arg.inout = CPS_AIO_INOUT_AI;
+	iRet = ioctl( Id, IOCTL_CPSAIO_RESET_MEMORY, &arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }
 
 /* Ao Channel */
@@ -1107,16 +1822,22 @@ unsigned long ContecCpsAioMultiAiEx( short Id, short AiChannels, double AiData[]
 **/
 unsigned long ContecCpsAioGetAoMaxChannels( short Id, short *AoMaxChannels ){
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( AoMaxChannels == ( short * )NULL )
 		return AIO_ERR_PTR_AO_MAX_CHANNELS;
 
 	arg.inout = CPS_AIO_INOUT_AO;
-	ioctl( Id, IOCTL_CPSAIO_GETMAXCHANNEL, &arg );
-	*AoMaxChannels = arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_GETMAXCHANNEL, &arg );
 
-	return AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*AoMaxChannels = arg.val;
+
+	return ulRet;
 }
 
 /**
@@ -1134,15 +1855,20 @@ unsigned long ContecCpsAioGetAoMaxChannels( short Id, short *AoMaxChannels ){
 unsigned long ContecCpsAioSetAoChannels( short Id, short AoChannels )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	/* Multi only*/
-	_contec_cpsaio_set_exchange( Id, 1, 1 );
+	_contec_cpsaio_set_exchange( Id, CPS_AIO_INOUT_AO, CONTEC_CPSAIO_LIB_EXCHANGE_MULTI );
 
 	/* Set Channel */
 	arg.val = AoChannels - 1;
-	ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AO, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AO, &arg );
 
-	return AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;	
+
+	return ulRet;
 }
 
 /**
@@ -1160,12 +1886,17 @@ unsigned long ContecCpsAioSetAoChannels( short Id, short AoChannels )
 unsigned long ContecCpsAioSetAoEventSamplingTimes( short Id, unsigned long AoSamplingTimes )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	/* Set Channel */
 	arg.val = AoSamplingTimes - 1 ;
-	ioctl( Id, IOCTL_CPSAIO_SET_SAMPNUM_AO, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_SET_SAMPNUM_AO, &arg );
 
-	return AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 
 }
 
@@ -1185,17 +1916,25 @@ unsigned long ContecCpsAioStartAo( short Id )
 {
 
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
-	ioctl( Id, IOCTL_CPSAIO_START_AO, NULL );
-
+	iRet = ioctl( Id, IOCTL_CPSAIO_START_AO, NULL );
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
 //	do{
 //		ioctl( Id, IOCTL_CPSAIO_OUTSTATUS, &arg );;
 //	}while( arg.val & 0x10 );
 
-	//softtrigger only out pulse start
-	ioctl( Id, IOCTL_CPSAIO_SET_OUTPULSE0, 0 );
+	if( ulRet == AIO_ERR_SUCCESS ){
+		//softtrigger only out pulse start
+		iRet = ioctl( Id, IOCTL_CPSAIO_SET_OUTPULSE0, 0 );
 
-	return AIO_ERR_SUCCESS;
+		if( iRet < 0 )
+			ulRet = AIO_ERR_DLL_CALL_DRIVER;	
+	}
+
+	return ulRet;
 
 }
 
@@ -1211,8 +1950,15 @@ unsigned long ContecCpsAioStartAo( short Id )
 **/
 unsigned long ContecCpsAioStopAo( short Id )
 {
-	ioctl( Id, IOCTL_CPSAIO_STOP_AO, NULL );
-	return AIO_ERR_SUCCESS;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	iRet = ioctl( Id, IOCTL_CPSAIO_STOP_AO, NULL );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }
 
 /**
@@ -1230,16 +1976,21 @@ unsigned long ContecCpsAioStopAo( short Id )
 unsigned long ContecCpsAioGetAoStatus( short Id, long *AoStatus )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( AoStatus == ( long * )NULL )
 		return AIO_ERR_PTR_AO_STATUS;
 
-	ioctl( Id, IOCTL_CPSAIO_OUTSTATUS, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_OUTSTATUS, &arg );
 
-	*AoStatus = (long)arg.val;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*AoStatus = (long)arg.val;
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -1257,12 +2008,17 @@ unsigned long ContecCpsAioGetAoStatus( short Id, long *AoStatus )
 unsigned long ContecCpsAioSetAoSamplingClock( short Id, double AoSamplingClock )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	/* Set Clock */
 	arg.val = (unsigned long) (AoSamplingClock * 1000.0 / 25.0) - 1 ;
-	ioctl( Id, IOCTL_CPSAIO_SET_CLOCK_AO, &arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_SET_CLOCK_AO, &arg );
 
-	return AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 
 }
 
@@ -1285,22 +2041,47 @@ unsigned long ContecCpsAioSingleAo( short Id, short AoChannel, long AoData )
 
 	struct cpsaio_ioctl_arg	arg;
 	long AoStatus = 0;
+	short AoMaxChannel = 0;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	ulRet = ContecCpsAioGetAoMaxChannels(Id, &AoMaxChannel);
+
+	if( ulRet != AIO_ERR_SUCCESS )
+		return ulRet;
+
+	if( AoChannel >= AoMaxChannel ){
+		return AIO_ERR_PTR_AO_CHANNELS;// chaneel error
+	}
 
 	// Exchange Transfer Mode Single Ao
-	_contec_cpsaio_set_exchange( Id, 1, 0 );
+	ulRet = _contec_cpsaio_set_exchange( Id, CPS_AIO_INOUT_AO, CONTEC_CPSAIO_LIB_EXCHANGE_SINGLE );
 
-	// Set Ao Channel
-	arg.val = AoChannel;
-	ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AO, &arg );
+	if( ulRet == AIO_ERR_SUCCESS ){
+		// Set Ao Channel
+		arg.val = AoChannel;
+		iRet = ioctl( Id, IOCTL_CPSAIO_SETCHANNEL_AO, &arg );
 
-	// Set Sampling Number
-	ContecCpsAioSetAoEventSamplingTimes( Id, 1 );
+		if( iRet < 0 )
+			ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	}
 
-	arg.val = AoData;
-	ioctl( Id, IOCTL_CPSAIO_OUTDATA, &arg );
+	if( ulRet == AIO_ERR_SUCCESS ){
+		// Set Sampling Number
+		ulRet = ContecCpsAioSetAoEventSamplingTimes( Id, 1 );
+	}
 
-	// Ao Start
-	ContecCpsAioStartAo( Id );
+	if( ulRet == AIO_ERR_SUCCESS ){
+		arg.val = AoData;
+		iRet = ioctl( Id, IOCTL_CPSAIO_OUTDATA, &arg );
+		if( iRet < 0 )
+			ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){
+		// Ao Start
+		ulRet = ContecCpsAioStartAo( Id );
+	}
 
 	// Ao Stop
 	ContecCpsAioStopAo( Id );
@@ -1327,11 +2108,12 @@ unsigned long ContecCpsAioSingleAoEx( short Id, short AoChannel, double AoData )
 
 	long tmpAoData = 0;
 	unsigned short AoResolution = 0;
-
+	unsigned long ulRet = AIO_ERR_SUCCESS;
 	double dblMin, dblMax;
 
-	ContecCpsAioGetAoResolution( Id, &AoResolution );
+	ulRet = ContecCpsAioGetAoResolution( Id, &AoResolution );
 
+	if( ulRet == AIO_ERR_SUCCESS ){
 /*
 	ContecCpsAioGetAoRange( Id, &AoRange ); 
 	switch( AoRange ){
@@ -1343,11 +2125,12 @@ unsigned long ContecCpsAioSingleAoEx( short Id, short AoChannel, double AoData )
 	}
 */
 
-	tmpAoData = (long)( (AoData - dblMin) * pow(2.0, AoResolution) / (dblMax - dblMin) );
+		tmpAoData = (long)( (AoData - dblMin) * pow(2.0, AoResolution) / (dblMax - dblMin) );
 	
-	ContecCpsAioSingleAo( Id, AoChannel, tmpAoData );
+		ulRet = ContecCpsAioSingleAo( Id, AoChannel, tmpAoData );
+	}
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -1368,24 +2151,45 @@ unsigned long ContecCpsAioMultiAo( short Id, short AoChannels, long AoData[] )
 {
 
 	struct cpsaio_ioctl_arg	arg;
-	int cnt;
+	int cnt = 0;
+	short AoMaxChannel = 0;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( AoData == ( long * )NULL )
 		return AIO_ERR_PTR_AO_DATA;
 
-	ContecCpsAioSetAoChannels(Id, AoChannels );
+	ulRet = ContecCpsAioGetAoMaxChannels(Id, &AoMaxChannel);
 
-	// Set Sampling Number
-	ContecCpsAioSetAoEventSamplingTimes( Id, 1 );
+	if( ulRet != AIO_ERR_SUCCESS )
+		return ulRet;
 
-	for( cnt = 0;cnt < AoChannels; cnt ++ ){
-		arg.val = (long)AoData[cnt];
-		ioctl( Id, IOCTL_CPSAIO_OUTDATA, &arg );
+	if( AoChannels > AoMaxChannel )
+		return AIO_ERR_OTHER;// channel error
+
+	ulRet = ContecCpsAioSetAoChannels(Id, AoChannels );
+
+	if( ulRet == AIO_ERR_SUCCESS ){
+		// Set Sampling Number
+		ulRet = ContecCpsAioSetAoEventSamplingTimes( Id, 1 );
 	}
 
-	// Ao Start
-	ContecCpsAioStartAo( Id );
+	if( ulRet == AIO_ERR_SUCCESS ){	
+		for( cnt = 0;cnt < AoChannels; cnt ++ ){
+			arg.val = (long)AoData[cnt];
+			iRet = ioctl( Id, IOCTL_CPSAIO_OUTDATA, &arg );
+			if( iRet < 0 ){
+				ulRet = AIO_ERR_DLL_CALL_DRIVER;
+				break;
+			}
+		}
+	}
+
+	if( ulRet == AIO_ERR_SUCCESS ){	
+		// Ao Start
+		ulRet = ContecCpsAioStartAo( Id );
+	}
 
 	// Ao Stop
 	ContecCpsAioStopAo( Id );
@@ -1412,8 +2216,9 @@ unsigned long ContecCpsAioMultiAoEx( short Id, short AoChannels, double AoData[]
 
 	long *tmpAoData;
 	unsigned short AoResolution = 0;
-	int cnt;
-	double dblMin, dblMax;
+	int cnt = 0;
+	double dblMin = 0.0, dblMax = 0.0;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
 
 	// NULL Pointer Checks
 	if( AoData == ( double * )NULL )
@@ -1425,7 +2230,9 @@ unsigned long ContecCpsAioMultiAoEx( short Id, short AoChannels, double AoData[]
 		return AIO_ERR_INI_MEMORY;
 	}
 
-	ContecCpsAioGetAoResolution( Id, &AoResolution );
+	ulRet = ContecCpsAioGetAoResolution( Id, &AoResolution );
+
+	if( ulRet == AIO_ERR_SUCCESS ){	
 
 /*
 	ContecCpsAioGetAoRange( Id, &AoRange ); 
@@ -1437,15 +2244,16 @@ unsigned long ContecCpsAioMultiAoEx( short Id, short AoChannels, double AoData[]
 			break;
 	}
 */	
-	for( cnt = 0;cnt < AoChannels; cnt ++){
-		tmpAoData[cnt] = (long)( (AoData[cnt] - dblMin) * pow(2.0, AoResolution) / (dblMax - dblMin) );
-	}
+		for( cnt = 0;cnt < AoChannels; cnt ++){
+			tmpAoData[cnt] = (long)( (AoData[cnt] - dblMin) * pow(2.0, AoResolution) / (dblMax - dblMin) );
+		}
 
-	ContecCpsAioMultiAo( Id, AoChannels, tmpAoData );
+		ulRet = ContecCpsAioMultiAo( Id, AoChannels, tmpAoData );
+	}
 
 	free(tmpAoData);
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -1465,9 +2273,14 @@ unsigned long ContecCpsAioMultiAoEx( short Id, short AoChannels, double AoData[]
 unsigned long ContecCpsAioSetEcuSignal( short Id, unsigned short dest, unsigned short src )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	arg.val = CPSAIO_ECU_DESTSRC_SIGNAL(dest, src);
-	ioctl( Id, IOCTL_CPSAIO_SETECU_SIGNAL, &arg);
+	iRet = ioctl( Id, IOCTL_CPSAIO_SETECU_SIGNAL, &arg);
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
 
 	return AIO_ERR_SUCCESS;
 }
@@ -1495,7 +2308,8 @@ unsigned long ContecCpsAioSetAiCalibrationData( short Id, unsigned char select, 
 {
 	int aisel = 0;
 	struct cpsaio_ioctl_arg	arg;
-
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	arg.ch = ch;
 	arg.val = CPSAIO_AI_CALIBRATION_DATA(select, ch, range, aisel, data);
@@ -1525,6 +2339,8 @@ unsigned long ContecCpsAioSetAiCalibrationData( short Id, unsigned char select, 
 unsigned long ContecCpsAioGetAiCalibrationData( short Id, unsigned char *select, unsigned char *ch, unsigned char *range, unsigned short *data )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( select == ( unsigned char * )NULL )
@@ -1539,11 +2355,15 @@ unsigned long ContecCpsAioGetAiCalibrationData( short Id, unsigned char *select,
 	if( data == ( unsigned short * )NULL )
 		return AIO_ERR_OTHER;
 
-	ioctl( Id, IOCTL_CPSAIO_GET_CALIBRATION_AI, &arg);
+	iRet = ioctl( Id, IOCTL_CPSAIO_GET_CALIBRATION_AI, &arg);
 
-	*select = CPSAIO_AI_CALIBRATION_GETSELECT( arg.val );
-	*range = CPSAIO_AI_CALIBRATION_GETRANGE( arg.val );	
-	*data = CPSAIO_AI_CALIBRATION_GETDATA( arg.val );
+	if( iRet < 0 ){
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	}else{
+		*select = CPSAIO_AI_CALIBRATION_GETSELECT( arg.val );
+		*range = CPSAIO_AI_CALIBRATION_GETRANGE( arg.val );	
+		*data = CPSAIO_AI_CALIBRATION_GETDATA( arg.val );
+	}
 
 	return AIO_ERR_SUCCESS;
 } 
@@ -1567,9 +2387,14 @@ unsigned long ContecCpsAioWriteAiCalibrationData( short Id, unsigned char ch, un
 {
 	int aisel = 0;
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	arg.val = ( gain << 8 )  | offset;
-	ioctl( Id, IOCTL_CPSAIO_WRITE_EEPROM_AI, &arg);
+	iRet = ioctl( Id, IOCTL_CPSAIO_WRITE_EEPROM_AI, &arg);
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
 
 	return AIO_ERR_SUCCESS;	
 
@@ -1595,6 +2420,8 @@ unsigned long ContecCpsAioReadAiCalibrationData( short Id, unsigned char ch, uns
 {
 	int aisel = 0;
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( gain == ( unsigned char * )NULL )
@@ -1604,13 +2431,17 @@ unsigned long ContecCpsAioReadAiCalibrationData( short Id, unsigned char ch, uns
 		return AIO_ERR_OTHER;
 
 
-	ioctl( Id, IOCTL_CPSAIO_READ_EEPROM_AI, &arg);
+	iRet = ioctl( Id, IOCTL_CPSAIO_READ_EEPROM_AI, &arg);
 
-	*gain = 	(arg.val & 0xFF00 ) >> 8;
+	if( iRet < 0 ){
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	}else{
+		*gain = 	(arg.val & 0xFF00 ) >> 8;
 
-	*offset = (arg.val & 0xFF );
+		*offset = (arg.val & 0xFF );
+	}
 
-	return AIO_ERR_SUCCESS;	
+	return ulRet;	
 
 }
 /**
@@ -1627,19 +2458,28 @@ unsigned long ContecCpsAioReadAiCalibrationData( short Id, unsigned char ch, uns
 **/
 unsigned long ContecCpsAioClearAiCalibrationData( short Id, int iClear )
 {
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	if( iClear & CPSAIO_AI_CALIBRATION_CLEAR_RAM ){
 		//FPGA all Clear
-		ContecCpsAioSetAiCalibrationData( Id, CPSAIO_AI_CALIBRATION_SELECT_OFFSET, 0, CPSAIO_AI_CALIBRATION_RANGE_PM10, 0 );
-		ContecCpsAioSetAiCalibrationData( Id, CPSAIO_AI_CALIBRATION_SELECT_GAIN, 0, CPSAIO_AI_CALIBRATION_RANGE_PM10, 0 );
+		ulRet = ContecCpsAioSetAiCalibrationData( Id, CPSAIO_AI_CALIBRATION_SELECT_OFFSET, 0, CPSAIO_AI_CALIBRATION_RANGE_PM10, 0 );
+
+		if( ulRet == AIO_ERR_SUCCESS )
+			ulRet = ContecCpsAioSetAiCalibrationData( Id, CPSAIO_AI_CALIBRATION_SELECT_GAIN, 0, CPSAIO_AI_CALIBRATION_RANGE_PM10, 0 );
 	}
 
-	if( iClear & CPSAIO_AI_CALIBRATION_CLEAR_ROM ){
-		//FPGA ROM CLEAR
-		ioctl( Id, IOCTL_CPSAIO_CLEAR_EEPROM, NULL);
+	if( ulRet == AIO_ERR_SUCCESS ){
+		if( iClear & CPSAIO_AI_CALIBRATION_CLEAR_ROM ){
+			//FPGA ROM CLEAR
+			iRet = ioctl( Id, IOCTL_CPSAIO_CLEAR_EEPROM, NULL);
+
+			if( iRet < 0 )
+				ulRet = AIO_ERR_DLL_CALL_DRIVER;			
+		}
 	}
 
-	return AIO_ERR_SUCCESS;	
+	return ulRet;	
 
 }
 
@@ -1666,11 +2506,16 @@ unsigned long ContecCpsAioSetAoCalibrationData( short Id, unsigned char select, 
 {
 	int aisel = 0;
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	arg.val = CPSAIO_AO_CALIBRATION_DATA(select, ch, range, aisel, data);
-	ioctl( Id, IOCTL_CPSAIO_SET_CALIBRATION_AO, &arg);
+	iRet = ioctl( Id, IOCTL_CPSAIO_SET_CALIBRATION_AO, &arg);
 
-	return AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 
 } 
 
@@ -1695,6 +2540,8 @@ unsigned long ContecCpsAioSetAoCalibrationData( short Id, unsigned char select, 
 unsigned long ContecCpsAioGetAoCalibrationData( short Id, unsigned char *select, unsigned char *ch, unsigned char *range, unsigned short *data )
 {
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( select == ( unsigned char * )NULL )
@@ -1709,13 +2556,17 @@ unsigned long ContecCpsAioGetAoCalibrationData( short Id, unsigned char *select,
 	if( data == ( unsigned short * )NULL )
 		return AIO_ERR_OTHER;
 
-	ioctl( Id, IOCTL_CPSAIO_GET_CALIBRATION_AO, &arg);
+	iRet = ioctl( Id, IOCTL_CPSAIO_GET_CALIBRATION_AO, &arg);
 
-	*select = CPSAIO_AO_CALIBRATION_GETSELECT( arg.val );
-	*range = CPSAIO_AO_CALIBRATION_GETRANGE( arg.val );	
-	*data = CPSAIO_AO_CALIBRATION_GETDATA( arg.val );
+	if( iRet < 0 ){
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	}else{
+		*select = CPSAIO_AO_CALIBRATION_GETSELECT( arg.val );
+		*range = CPSAIO_AO_CALIBRATION_GETRANGE( arg.val );	
+		*data = CPSAIO_AO_CALIBRATION_GETDATA( arg.val );
+	}
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 } 
 
 /**
@@ -1738,12 +2589,17 @@ unsigned long ContecCpsAioWriteAoCalibrationData( short Id, unsigned char ch, un
 {
 	int aisel = 0;
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	arg.ch = ch;
 	arg.val = ( gain << 8 )  | offset;
-	ioctl( Id, IOCTL_CPSAIO_WRITE_EEPROM_AO, &arg);
+	iRet = ioctl( Id, IOCTL_CPSAIO_WRITE_EEPROM_AO, &arg);
 
-	return AIO_ERR_SUCCESS;	
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;	
 
 }
 /**
@@ -1766,6 +2622,8 @@ unsigned long ContecCpsAioReadAoCalibrationData( short Id, unsigned char ch, uns
 {
 	int aisel = 0;
 	struct cpsaio_ioctl_arg	arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( gain == ( unsigned char * )NULL )
@@ -1776,13 +2634,18 @@ unsigned long ContecCpsAioReadAoCalibrationData( short Id, unsigned char ch, uns
 
 	arg.ch = ch;
 
-	ioctl( Id, IOCTL_CPSAIO_READ_EEPROM_AO, &arg);
+	iRet = ioctl( Id, IOCTL_CPSAIO_READ_EEPROM_AO, &arg);
 
-	*gain = 	(arg.val & 0xFF00 ) >> 8;
+	if( iRet < 0 ){
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	}else{
 
-	*offset = (arg.val & 0xFF );
+		*gain = 	(arg.val & 0xFF00 ) >> 8;
 
-	return AIO_ERR_SUCCESS;	
+		*offset = (arg.val & 0xFF );
+	}
+
+	return ulRet;	
 
 }
 
@@ -1801,20 +2664,27 @@ unsigned long ContecCpsAioReadAoCalibrationData( short Id, unsigned char ch, uns
 unsigned long ContecCpsAioClearAoCalibrationData( short Id, int iClear )
 {
 	int cnt;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	if( iClear & CPSAIO_AO_CALIBRATION_CLEAR_RAM ){
 		//FPGA all Clear
 		for( cnt = 0;cnt < 4 ;cnt ++ ){
-			ContecCpsAioSetAoCalibrationData( Id, CPSAIO_AO_CALIBRATION_SELECT_OFFSET, cnt, CPSAIO_AO_CALIBRATION_RANGE_P20MA, 0 );
-			ContecCpsAioSetAoCalibrationData( Id, CPSAIO_AO_CALIBRATION_SELECT_GAIN, cnt, CPSAIO_AO_CALIBRATION_RANGE_P20MA, 0 );
+			ulRet = ContecCpsAioSetAoCalibrationData( Id, CPSAIO_AO_CALIBRATION_SELECT_OFFSET, cnt, CPSAIO_AO_CALIBRATION_RANGE_P20MA, 0 );
+			if( ulRet == AIO_ERR_SUCCESS )
+				ulRet = ContecCpsAioSetAoCalibrationData( Id, CPSAIO_AO_CALIBRATION_SELECT_GAIN, cnt, CPSAIO_AO_CALIBRATION_RANGE_P20MA, 0 );
 		}
 	}
-	if( iClear & CPSAIO_AO_CALIBRATION_CLEAR_ROM ){
-		//FPGA ROM CLEAR
-		ioctl( Id, IOCTL_CPSAIO_CLEAR_EEPROM, NULL);
-	}
+	if( ulRet == AIO_ERR_SUCCESS ){
+		if( iClear & CPSAIO_AO_CALIBRATION_CLEAR_ROM ){
+			//FPGA ROM CLEAR
+			iRet = ioctl( Id, IOCTL_CPSAIO_CLEAR_EEPROM, NULL);
 
-	return AIO_ERR_SUCCESS;	
+			if( iRet < 0 )
+				ulRet = AIO_ERR_DLL_CALL_DRIVER;	
+		}
+	}
+	return ulRet;	
 
 }
 
@@ -1837,16 +2707,24 @@ unsigned long ContecCpsAioClearAoCalibrationData( short Id, int iClear )
 unsigned long ContecCpsAioInp( short Id, unsigned long addr, unsigned char *value )
 {
 	struct cpsaio_direct_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( value == ( unsigned char * )NULL )
 		return AIO_ERR_OTHER;
 
-	arg.addr = addr;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_INPUT, arg );
-	*value = (unsigned char)arg.val;
+	memset(&arg, 0, sizeof(struct cpsaio_direct_arg));
 
-	return AIO_ERR_SUCCESS;
+	arg.addr = addr;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_INPUT, arg );
+	
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned char)arg.val;
+
+	return ulRet;
 }
 
 /**
@@ -1866,16 +2744,24 @@ unsigned long ContecCpsAioInp( short Id, unsigned long addr, unsigned char *valu
 unsigned long ContecCpsAioInpW( short Id, unsigned long addr, unsigned short *value )
 {
 	struct cpsaio_direct_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( value == ( unsigned short * )NULL )
 		return AIO_ERR_OTHER;
-	
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_arg));
+
 	arg.addr = addr;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_INPUT, arg );
-	*value = (unsigned short)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_INPUT, arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned short)arg.val;
 	
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 
 }
 
@@ -1896,16 +2782,24 @@ unsigned long ContecCpsAioInpW( short Id, unsigned long addr, unsigned short *va
 unsigned long ContecCpsAioInpD( short Id, unsigned long addr, unsigned long *value )
 {
 	struct cpsaio_direct_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( value == ( unsigned long * )NULL )
 		return AIO_ERR_OTHER;
-	
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_arg));	
+
 	arg.addr = addr;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_INPUT, arg );
-	*value = (unsigned long)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_INPUT, arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned long)arg.val;
 	
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -1925,12 +2819,19 @@ unsigned long ContecCpsAioInpD( short Id, unsigned long addr, unsigned long *val
 unsigned long ContecCpsAioOutp( short Id, unsigned long addr, unsigned char value )
 {
 	struct cpsaio_direct_arg arg;
-	
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_arg));
+
 	arg.addr = addr;
 	arg.val = (unsigned long)value;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_OUTPUT, arg );
-	
-	return AIO_ERR_SUCCESS;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_OUTPUT, arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }
 
 /**
@@ -1950,12 +2851,19 @@ unsigned long ContecCpsAioOutp( short Id, unsigned long addr, unsigned char valu
 unsigned long ContecCpsAioOutpW( short Id, unsigned long addr, unsigned short value )
 {
 	struct cpsaio_direct_arg arg;
-	
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_arg));
+
 	arg.addr = addr;
 	arg.val = (unsigned long)value;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_OUTPUT, arg );
-	
-	return AIO_ERR_SUCCESS;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_OUTPUT, arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 
 }
 
@@ -1976,12 +2884,19 @@ unsigned long ContecCpsAioOutpW( short Id, unsigned long addr, unsigned short va
 unsigned long ContecCpsAioOutpD( short Id, unsigned long addr, unsigned long value )
 {
 	struct cpsaio_direct_arg arg;
-	
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_arg));
+
 	arg.addr = addr;
 	arg.val = (unsigned long)value;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_OUTPUT, arg );
-	
-	return AIO_ERR_SUCCESS;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_OUTPUT, arg );
+
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 
 }
 
@@ -2002,18 +2917,26 @@ unsigned long ContecCpsAioOutpD( short Id, unsigned long addr, unsigned long val
 unsigned long ContecCpsAioEcuInp( short Id, unsigned long addr, unsigned char *value )
 {
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( value == ( unsigned char * )NULL )
 		return AIO_ERR_OTHER;
 
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
+
 	arg.addr = addr;
 	arg.isEcu = 1;
 	arg.size = 1;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
-	*value = (unsigned char)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
 
-	return AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned char)arg.val;
+
+	return ulRet;
 
 }
 
@@ -2035,18 +2958,25 @@ unsigned long ContecCpsAioEcuInpW( short Id, unsigned long addr, unsigned short 
 {
 
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( value == ( unsigned short * )NULL )
 		return AIO_ERR_OTHER;
 
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
+
 	arg.addr = addr;
 	arg.isEcu = 1;
 	arg.size = 2;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
-	*value = (unsigned short)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned short)arg.val;
 
-	return 	AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -2067,18 +2997,25 @@ unsigned long ContecCpsAioEcuInpD( short Id, unsigned long addr, unsigned long *
 {
 
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( value == ( unsigned long * )NULL )
 		return AIO_ERR_OTHER;
 
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
+
 	arg.addr = addr;
 	arg.isEcu = 1;
 	arg.size = 4;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
-	*value = (unsigned long)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned long)arg.val;
 
-	return 	AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -2098,14 +3035,21 @@ unsigned long ContecCpsAioEcuInpD( short Id, unsigned long addr, unsigned long *
 unsigned long ContecCpsAioEcuOutp( short Id, unsigned long addr, unsigned char value )
 {
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
 
 	arg.addr = addr;
 	arg.isEcu = 1;
 	arg.size = 1;
 	arg.val = value;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
 
-	return 	AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }
 
 /**
@@ -2124,17 +3068,23 @@ unsigned long ContecCpsAioEcuOutp( short Id, unsigned long addr, unsigned char v
 **/
 unsigned long ContecCpsAioEcuOutpW( short Id, unsigned long addr, unsigned short value )
 {
-
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
 
 	arg.addr = addr;
 	arg.isEcu = 1;
 	arg.size = 2;
 	arg.val = (unsigned long)value;
 
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
 
-	return 	AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }
 
 /**
@@ -2155,15 +3105,22 @@ unsigned long ContecCpsAioEcuOutpD( short Id, unsigned long addr, unsigned long 
 {
 
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
 
 	arg.addr = addr;
 	arg.isEcu = 1;
 	arg.size = 4;
 	arg.val = value;
 
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
 
-	return 	AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }
 
 /**
@@ -2184,18 +3141,25 @@ unsigned long ContecCpsAioCommandInp( short Id, unsigned long addr, unsigned cha
 {
 
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( value == ( unsigned char * )NULL )
 		return AIO_ERR_OTHER;
 
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
+
 	arg.addr = addr;
 	arg.isEcu = 0;
 	arg.size = 1;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
-	*value = (unsigned char)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned char)arg.val;
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -2216,18 +3180,25 @@ unsigned long ContecCpsAioCommandInpW( short Id, unsigned long addr, unsigned sh
 {
 
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( value == ( unsigned short * )NULL )
 		return AIO_ERR_OTHER;
 
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
+
 	arg.addr = addr;
 	arg.isEcu = 0;
 	arg.size = 2;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
-	*value = (unsigned short)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned short)arg.val;
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -2248,18 +3219,25 @@ unsigned long ContecCpsAioCommandInpD( short Id, unsigned long addr, unsigned lo
 {
 
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
 
 	// NULL Pointer Checks
 	if( value == ( unsigned long * )NULL )
 		return AIO_ERR_OTHER;
 
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
+
 	arg.addr = addr;
 	arg.isEcu = 0;
 	arg.size = 4;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
-	*value = (unsigned long)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_INPUT, arg );
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned long)arg.val;
 
-	return AIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -2279,14 +3257,21 @@ unsigned long ContecCpsAioCommandInpD( short Id, unsigned long addr, unsigned lo
 unsigned long ContecCpsAioCommandOutp( short Id, unsigned long addr, unsigned char value )
 {
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
 
 	arg.addr = addr;
 	arg.isEcu = 0;
 	arg.size = 1;
 	arg.val = (unsigned long)value;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
 
-	return 	AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }
 
 /**
@@ -2306,14 +3291,21 @@ unsigned long ContecCpsAioCommandOutp( short Id, unsigned long addr, unsigned ch
 unsigned long ContecCpsAioCommandOutpW( short Id, unsigned long addr, unsigned short value )
 {
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
 
 	arg.addr = addr;
 	arg.isEcu = 0;
 	arg.size = 2;
 	arg.val = (unsigned long)value;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
-
-	return 	AIO_ERR_SUCCESS;
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
+	
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+	
+	return ulRet;
 }
 
 /**
@@ -2333,13 +3325,20 @@ unsigned long ContecCpsAioCommandOutpW( short Id, unsigned long addr, unsigned s
 unsigned long ContecCpsAioCommandOutpD( short Id, unsigned long addr, unsigned long value )
 {
 	struct cpsaio_direct_command_arg arg;
+	unsigned long ulRet = AIO_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsaio_direct_command_arg));
 
 	arg.addr = addr;
 	arg.isEcu = 0;
 	arg.size = 4;
 	arg.val = value;
-	ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
+	iRet = ioctl( Id, IOCTL_CPSAIO_DIRECT_COMMAND_OUTPUT, arg );
 
-	return 	AIO_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = AIO_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }
 

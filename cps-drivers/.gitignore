@@ -41,3 +41,5 @@ driver/release/mc341/*
 lib/release/**/*
 sample/ssi/etc/
 sample/aio/etc/
+
+*.vscode/

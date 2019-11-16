@@ -56,7 +56,8 @@ char *buf)	/* (OUT) Ši”[ƒoƒbƒtƒ@256byte Stored buffer 256byte */
 int SetEepromFilePath(
 const char *cFilePath) /* (IN) Set File pathname */
 {
-	strcpy(cEepromFilePath, cFilePath);
+//	strcpy(cEepromFilePath, cFilePath);
+	sprintf(cEepromFilePath, "%s", cFilePath);
 	return 0;
 }
 

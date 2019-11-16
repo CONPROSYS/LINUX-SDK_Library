@@ -30,6 +30,7 @@
                       (4) Fixed change value name,  from send_size to size.
     update 2016.07.20 (1) Fixed Received Data divided into two.
 	update 2016.07.29 (1) Added Received Data Timeout Error.
+	update 2019.05.08 (1) Fixed freeConexioCMM920_packet. 
 ***/
 
 #include <stdio.h>
@@ -45,7 +46,12 @@
 #include "libconexio_CMM920.h"
 #include "serialfunc.h"
 
-#define LIB_CONNEXIO_CMM920_VERSION "1.1.4"
+#ifdef CONPROSYS_MAKEFILE_VERSION
+	#define LIB_CONNEXIO_CMM920_VERSION CONPROSYS_MAKEFILE_VERSION
+#else
+	#define LIB_CONNEXIO_CMM920_VERSION "1.1.5"
+#endif
+
 #define LIB_CONNEXIO_SYSLOG_NAME "libconnexio_CMM920"
 
 
@@ -1597,10 +1603,10 @@ int parseMHR(BYTE dataBuf[] , unsigned short *pFc, BYTE *pSeq_no, unsigned short
 
 	unsigned short fc = 0;
 	BYTE seq_no = 0;
-	unsigned short dest_id;
-	unsigned short src_id;
-	long dest_addr;
-	long src_addr;
+	unsigned short dest_id = 0;
+	unsigned short src_id = 0;
+	long dest_addr = 0;
+	long src_addr = 0;
 
 
 	fc = ( dataBuf[1] << 8 ) | dataBuf[0];
@@ -1623,6 +1629,8 @@ int parseMHR(BYTE dataBuf[] , unsigned short *pFc, BYTE *pSeq_no, unsigned short
 			dest_addr = ( dataBuf[ offset + 1 ] << 8 ) + dataBuf[ offset ];
 			offset += 2;
 			break;
+		default : 
+			return -1;
 		}
 	}
 
@@ -1643,6 +1651,8 @@ int parseMHR(BYTE dataBuf[] , unsigned short *pFc, BYTE *pSeq_no, unsigned short
 			src_addr = ( dataBuf[ offset + 1 ] << 8 ) + dataBuf[ offset ];
 			offset += 2;
 			break;
+		default : 
+			return -1;			
 		}
 	}
 
@@ -1656,7 +1666,7 @@ int parseMHR(BYTE dataBuf[] , unsigned short *pFc, BYTE *pSeq_no, unsigned short
 	DbgPrint("<parseMHR> fc:%x seq_no:%d dest_id : %x src_id : %x dest_addr :%lx src_addr : %lx \n ",
 		fc, seq_no, dest_id, src_id, dest_addr, src_addr);
 
-	return offset;
+	return (int)offset;
 
 }
 
@@ -1813,14 +1823,15 @@ int RecvTelegram(BYTE buf[], int *size , int hop, int *r_channel, int *rx_pwr, u
 	if( iRet == 0 ){
 		if( iSize > 0 ){
 			offset = parseMHR(	 buf, NULL, NULL, dest_id, src_id, dest_addr, src_addr );
-
-			for( i = offset; i < iSize; i ++ ){
-				buf[i - offset] = buf[i];
-				DbgPrint("%x", buf[i - offset]);
+			if( offset >= 0 ){
+				for( i = offset; i < iSize; i ++ ){
+					buf[i - offset] = buf[i];
+					DbgPrint("%x", buf[i - offset]);
+				}
+				DbgPrint(":Length %d\n", iSize - offset );
+				memset( &buf[iSize - offset], 0x00, offset );
+				if( size != NULL )	*size = iSize - offset;
 			}
-			DbgPrint(":Length %d\n", iSize - offset );
-			memset( &buf[iSize - offset], 0x00, offset );
-			if( size != NULL )	*size = iSize - offset;
 		}else{
 			if( size != NULL )	*size = 0;
 		}
@@ -2301,12 +2312,13 @@ PCONEXIO920PACKET allocConexioCMM920_packet(PCONEXIO920PACKET pac, BYTE mode, BY
 **/
 void freeConexioCMM920_packet(PCONEXIO920PACKET pac)
 {
-	if(pac->data != (BYTE *)NULL){
-		DbgAllocFreeCheck("<freeConexioCMM920_packet> Free PAC Data\n");
-		free(pac->data); 
-		pac->data = (BYTE *)NULL;//2016.01.15 (5)
-	}
-	if(pac != (PCONEXIO920PACKET)NULL ){
+	if(pac != (PCONEXIO920PACKET)NULL ){	
+		if(pac->data != (BYTE *)NULL){
+			DbgAllocFreeCheck("<freeConexioCMM920_packet> Free PAC Data\n");
+			free(pac->data); 
+			pac->data = (BYTE *)NULL;//2016.01.15 (5)
+		}
+
 		DbgAllocFreeCheck("<freeConexioCMM920_packet> Free PAC \n");
 		free(pac);
 		pac = (PCONEXIO920PACKET)NULL;//2016.01.15 (5)

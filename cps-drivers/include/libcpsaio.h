@@ -27,44 +27,49 @@
  @name DLL Group
 **/
 /// @{
-#define AIO_ERR_DLL_DEVICE_NAME		10000	///< 設定ユーティリティに登録されていないデバイス名が指定されました
-#define AIO_ERR_DLL_INVALID_ID		10001	///< 無効なIDが指定されました
-#define AIO_ERR_DLL_CALL_DRIVER		10002
-#define AIO_ERR_DLL_CREATE_FILE		10003	///< ハンドルの取得に失敗しました
-#define AIO_ERR_DLL_CLOSE_FILE		10004	///< ハンドルのクローズに失敗しました
-#define AIO_ERR_DLL_CREATE_THREAD	10005
-#define	AIO_ERR_PTR_DEVICE_NAME			10007		///< DeviceNameのポインタがNULLです
-#define	AIO_ERR_PTR_DEVICE				10008		///< DeviceのポインタがNULLです
-#define	AIO_ERR_UNKNOWN_DEVICE			10013		///< デバイスの種類を判別できません
-#define	AIO_ERR_PTR_DEVICE_TYPE			10015		///< DeviceTypeのポインタがNULLです
+#define AIO_ERR_DLL_DEVICE_NAME					10000	///< 設定ユーティリティに登録されていないデバイス名が指定されました
+#define AIO_ERR_DLL_INVALID_ID					10001	///< 無効なIDが指定されました
+#define AIO_ERR_DLL_CALL_DRIVER					10002
+#define AIO_ERR_DLL_CREATE_FILE					10003	///< ハンドルの取得に失敗しました
+#define AIO_ERR_DLL_CLOSE_FILE					10004	///< ハンドルのクローズに失敗しました
+#define AIO_ERR_DLL_CREATE_THREAD				10005
+#define	AIO_ERR_PTR_DEVICE_NAME					10007		///< DeviceNameのポインタがNULLです
+#define	AIO_ERR_PTR_DEVICE						10008		///< DeviceのポインタがNULLです
+#define	AIO_ERR_UNKNOWN_DEVICE					10013		///< デバイスの種類を判別できません
+#define	AIO_ERR_PTR_DEVICE_TYPE					10015		///< DeviceTypeのポインタがNULLです
 
-#define AIO_ERR_INFO_INVALID_DEVICE	10050	///< 指定したデバイス名称が見つかりません。スペルを確認してください。
-#define AIO_ERR_INFO_NOT_FIND_DEVICE	10051 ///< 利用可能なデバイスが見つかりません
-#define AIO_ERR_INFO_INVALID_INFOTYPE	10052
+#define AIO_ERR_INFO_INVALID_DEVICE				10050	///< 指定したデバイス名称が見つかりません。スペルを確認してください。
+#define AIO_ERR_INFO_NOT_FIND_DEVICE			10051 ///< 利用可能なデバイスが見つかりません
+#define AIO_ERR_INFO_INVALID_INFOTYPE			10052
 
-#define	AIO_ERR_NULL_DEVICE				10100		///< DeviceNameにデバイス名が格納されていません
-#define	AIO_ERR_PTR_ID					10101		///< IdのポインタがNULLです
-#define	AIO_ERR_PTR_ERR_STR				10180		///< ErrorStringのポインタがNULLです
-#define	AIO_ERR_PTR_AI_RANGE			11051		///< AiRangeがNULLです
-#define	AIO_ERR_AI_RANGE				11060		///< AiRangeの値が関数の指定範囲外です
-#define	AIO_ERR_AI_CHANNEL				11420		///< AiChannelの値が関数の指定範囲外です
-#define	AIO_ERR_PTR_AI_DATA				11421		///< AiDataのポインタがNULLです
-#define AIO_ERR_PTR_AI_SAMPLINGTIMES	11580
-#define	AIO_ERR_PTR_AI_MAX_CHANNELS		11720		///< AiMaxChannelsのポインタがNULLです
-#define	AIO_ERR_PTR_AI_RESOLUTION		11740		///< AiResolutionのポインタがNULLです
-#define	AIO_ERR_AO_CHANNEL				13000		///< AoChannelの値が関数の指定範囲外です
-#define	AIO_ERR_AO_CHANNELS				13020		///< AoChannelsの値が関数の指定範囲外です
-#define	AIO_ERR_PTR_AO_DATA				13021		///< AoDataのポインタがNULLです
-#define	AIO_ERR_PTR_AO_RESOLUTION		13040		///< AoResolutionのポインタがNULLです
-#define	AIO_ERR_PTR_AO_MAX_CHANNELS		13080		///< AoMaxChannelsのポインタがNULLです
-#define	AIO_ERR_PTR_AO_RANGE			13111		///< AoRangeのポインタがNULLです
-#define	AIO_ERR_AO_RANGE				13120		///< AoRangeの値が関数の指定範囲外です
+#define	AIO_ERR_NULL_DEVICE						10100		///< DeviceNameにデバイス名が格納されていません
+#define	AIO_ERR_PTR_ID							10101		///< IdのポインタがNULLです
+#define	AIO_ERR_PTR_ERR_STR						10180		///< ErrorStringのポインタがNULLです
+#define	AIO_ERR_PTR_AI_RANGE					11051		///< AiRangeがNULLです
+#define	AIO_ERR_AI_RANGE						11060		///< AiRangeの値が関数の指定範囲外です
+#define	AIO_ERR_OUT_OF_VALUE_AI_STARTTRIGGER	11160		///< SetAiStartTriggerの値が関数の指定範囲外です
+#define	AIO_ERR_OUT_OF_VALUE_AI_STOPTRIGGER		11260		///< SetAiStopTriggerの値が関数の指定範囲外です
+#define	AIO_ERR_PTR_AI_STOPTRIGGER				11270		///< SetAiStopTriggerがNULLです
+#define	AIO_ERR_AI_CHANNEL						11420		///< AiChannelの値が関数の指定範囲外です
+#define	AIO_ERR_PTR_AI_DATA						11421		///< AiDataのポインタがNULLです
+#define AIO_ERR_PTR_AI_SAMPLINGTIMES			11580
+#define	AIO_ERR_PTR_AI_MAX_CHANNELS				11720		///< AiMaxChannelsのポインタがNULLです
+#define	AIO_ERR_PTR_AI_RESOLUTION				11740		///< AiResolutionのポインタがNULLです
+#define	AIO_ERR_AO_CHANNEL						13000		///< AoChannelの値が関数の指定範囲外です
+#define	AIO_ERR_AO_CHANNELS						13020		///< AoChannelsの値が関数の指定範囲外です
+#define	AIO_ERR_PTR_AO_DATA						13021		///< AoDataのポインタがNULLです
+#define	AIO_ERR_PTR_AO_RESOLUTION				13040		///< AoResolutionのポインタがNULLです
+#define	AIO_ERR_PTR_AO_MAX_CHANNELS				13080		///< AoMaxChannelsのポインタがNULLです
+#define	AIO_ERR_PTR_AO_RANGE					13111		///< AoRangeのポインタがNULLです
+#define	AIO_ERR_AO_RANGE						13120		///< AoRangeの値が関数の指定範囲外です
 
-#define AIO_ERR_PTR_AI_CHANNELS	19000 ///< AI Channel Null Pointer
-#define AIO_ERR_PTR_AI_SAMPLING_CLOCK	19001 ///< AI Channel Null Pointer
- #define AIO_ERR_PTR_AO_STATUS	19002	///<
-#define AIO_ERR_PTR_AI_STATUS	19003	///<
-#define AIO_ERR_PTR_AI_SAMPLING_COUNT	19004	///<
+#define AIO_ERR_PTR_AI_CHANNELS				19000 ///< AI Channel Null Pointer
+#define AIO_ERR_PTR_AI_SAMPLING_CLOCK		19001 ///< AI Channel Null Pointer
+#define AIO_ERR_PTR_AO_STATUS				19002	///<
+#define AIO_ERR_PTR_AI_STATUS				19003	///<
+#define AIO_ERR_PTR_AI_SAMPLING_COUNT		19004	///<
+#define AIO_ERR_INTERNAL_TIMEOUT			19005	///<
+#define AIO_ERR_PTR_AO_CHANNELS				19006 ///< AO Channel Null Pointer
 /// @}
 
 /**
@@ -127,8 +132,12 @@
 #define CPSAIO_MEMTYPE_FIFO	0x00
 #define CPSAIO_MEMTYPE_RING	0x01
 
-/* Start Trigger Type */
-#define CPSAIO_STARTTRG_SOFT	0x00
+/* Ai Start Trigger Type */
+#define CPSAIO_AI_STARTTRG_SOFT	0x00
+
+/* Ai Stop Trigger Type */
+#define CPSAIO_AI_STOPTRG_0	0x00
+#define CPSAIO_AI_STOPTRG_4	0x04
 
 /* Ai Calibration */
 #define CPSAIO_AI_CALIBRATION_SELECT_OFFSET	0
@@ -205,6 +214,7 @@ extern unsigned long ContecCpsAioGetAoResolution( short Id, unsigned short *AoRe
 extern unsigned long ContecCpsAioGetAiMaxChannels( short Id, short * AiMaxChannels);
 extern unsigned long ContecCpsAioGetAoMaxChannels( short Id, short * AoMaxChannels);
 extern unsigned long ContecCpsAioGetVersion( short Id , unsigned char libVer[] , unsigned char drvVer[] );
+extern unsigned long ContecCpsAioResetDevice(short Id);
 
 /**** Analog Input Functions ****/
 extern unsigned long ContecCpsAioSetAiChannels( short Id, short AiChannels );
@@ -231,6 +241,18 @@ extern unsigned long ContecCpsAioGetAiCalibrationData( short Id, unsigned char *
 extern unsigned long ContecCpsAioWriteAiCalibrationData( short Id, unsigned char ch, unsigned char gain, unsigned char offset );
 extern unsigned long ContecCpsAioReadAiCalibrationData( short Id, unsigned char ch, unsigned char *gain, unsigned char *offset );
 extern unsigned long ContecCpsAioClearAiCalibrationData( short Id, int iClear );
+
+extern unsigned long ContecCpsAioResetAiStatus( short Id );
+extern unsigned long ContecCpsAioResetAiMemory( short Id );
+extern unsigned long ContecCpsAioGetAiMemoryType( short Id , unsigned short *AiMemoryType);
+extern unsigned long ContecCpsAioSetAiMemoryType( short Id , unsigned short AiMemoryType);
+extern unsigned long ContecCpsAioGetAiStopTimes( short Id, unsigned long *AiSamplingTimes );
+extern unsigned long ContecCpsAioSetAiStopTimes( short Id, unsigned long AiSamplingTimes );
+extern unsigned long ContecCpsAioGetAiStopTrigger( short Id, short *AiStopTrigger );
+extern unsigned long ContecCpsAioSetAiStopTrigger( short Id, short AiStopTrigger );
+extern unsigned long ContecCpsAioGetAiStartTrigger( short Id, short *AiStartTrigger );
+extern unsigned long ContecCpsAioSetAiStartTrigger( short Id, short AiStartTrigger );
+
 
 /**** Analog Output Functions ****/
 extern unsigned long ContecCpsAioSetAoChannels( short Id, short AoChannels );

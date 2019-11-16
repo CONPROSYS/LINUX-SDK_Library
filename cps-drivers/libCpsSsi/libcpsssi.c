@@ -34,7 +34,12 @@
  #include "libcpsssi.h"
 #endif
 
-#define CONTEC_CPSSSI_LIB_VERSION	"1.0.6"
+#ifdef CONPROSYS_MAKEFILE_VERSION
+	#define CONTEC_CPSSSI_LIB_VERSION CONPROSYS_MAKEFILE_VERSION
+#else
+	#define CONTEC_CPSSSI_LIB_VERSION	"1.0.7"
+#endif
+
 
 typedef struct __contec_cps_ssi_int_callback__
 {
@@ -88,19 +93,37 @@ unsigned long ContecCpsSsiInit( char *DeviceName, short *Id )
 	// open
 	char Name[32];
 	struct cpsssi_ioctl_arg	arg;
+	int iRet = 0;
+	unsigned long ulRet = SSI_ERR_SUCCESS;
+	int fd = 0;	
+
+	// NULL Pointer Checks
+	if( DeviceName == ( char * )NULL )
+		return SSI_ERR_PTR_DEVICE_NAME;
+	if( Id == ( short * )NULL )
+		return SSI_ERR_DLL_INVALID_ID;	
+
+	if( (strlen(DeviceName) + 5)  > 32 )
+		return SSI_ERR_DLL_CREATE_FILE;
 
 	strcpy(Name, "/dev/");
 	strcat(Name, DeviceName);
 
-	*Id = open( Name, O_RDWR );
+	fd = open( Name, O_RDWR );
 
-	if( *Id <= 0 ) return SSI_ERR_DLL_CREATE_FILE;
+	if( fd < 0 )
+		return SSI_ERR_DLL_CREATE_FILE;
 
-	ioctl( *Id, IOCTL_CPSSSI_INIT, &arg );
+	*Id = fd;
 
-	ContecCpsSsiSetSenseResistor( *Id, 2000.0 ); 
+	iRet = ioctl( *Id, IOCTL_CPSSSI_INIT, &arg );
+
+	if( iRet < 0 )
+		ulRet = SSI_ERR_DLL_CALL_DRIVER;
+	else
+		ulRet = ContecCpsSsiSetSenseResistor( *Id, 2000.0 ); 
 	
-	return SSI_ERR_SUCCESS;
+	return ulRet;
 
 }
 
@@ -166,25 +189,33 @@ unsigned long ContecCpsSsiQueryDeviceName( short Index, char *DeviceName, char *
 	char tmpDevName[16];
 	char baseDeviceName[16]="cpsssi";
 	char strNum[2]={0};
-	int findNum=0, cnt, ret;
-
+	int findNum=0, cnt;
+	unsigned long ulRet = SSI_ERR_SUCCESS;
 	short tmpId = 0;
+	int iRet = 0;	
+
+	// NULL Pointer Checks
+	if( DeviceName == ( char * )NULL )	return SSI_ERR_PTR_DEVICE_NAME;
+	if( Device == ( char * )NULL )	return SSI_ERR_PTR_DEVICE;
 
 	for(cnt = 0;cnt < CPS_DEVICE_MAX_NUM ; cnt ++ ){
 		sprintf(tmpDevName,"%s%x",baseDeviceName, cnt);
-		ret = ContecCpsSsiInit(tmpDevName, &tmpId);
+		ulRet = ContecCpsSsiInit(tmpDevName, &tmpId);
 
-		if( ret == 0 ){
-			ioctl(tmpId, IOCTL_CPSSSI_GET_DEVICE_NAME, &arg);
+		if( ulRet == SSI_ERR_SUCCESS ){
+			iRet = ioctl(tmpId, IOCTL_CPSSSI_GET_DEVICE_NAME, &arg);
 			ContecCpsSsiExit(tmpId);
 
-			if(findNum == Index){
-				sprintf(DeviceName,"%s",tmpDevName);
-				sprintf(Device,"%s", arg.str);
-				return SSI_ERR_SUCCESS;
-			}else{
-				findNum ++;
+			if( iRet >= 0 ){
+				if(findNum == Index){
+					sprintf(DeviceName,"%s",tmpDevName);
+					sprintf(Device,"%s", arg.str);
+					return SSI_ERR_SUCCESS;
+				}else{
+					findNum ++;
+				}
 			}
+
 			memset(&tmpDevName,0x00, 16);
 			memset(&arg.str, 0x00, sizeof(arg.str)/sizeof(arg.str[0]));
 
@@ -1120,7 +1151,7 @@ unsigned long ContecCpsSsiReadCalibrationOffset( short Id, unsigned char ch, dou
 **/
 unsigned long ContecCpsSsiClearCalibrationData( short Id, int iClear )
 {
-	int cnt;
+	int cnt = 0;
 
 	if( iClear & CPSSSI_CALIBRATION_CLEAR_RAM ){
 		//all Clear
@@ -1160,12 +1191,20 @@ unsigned long ContecCpsSsiCommandInp( short Id, unsigned long addr, unsigned cha
 {
 
 	struct cpsssi_direct_command_arg arg;
+	unsigned long ulRet = SSI_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsssi_direct_command_arg));
 
 	arg.addr = addr;
-	ioctl( Id, IOCTL_CPSSSI_DIRECT_COMMAND_INPUT, arg );
-	*value = (unsigned char)arg.val;
+	iRet = ioctl( Id, IOCTL_CPSSSI_DIRECT_COMMAND_INPUT, arg );
 
-	return SSI_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = SSI_ERR_DLL_CALL_DRIVER;
+	else
+		*value = (unsigned char)arg.val;
+
+	return ulRet;
 }
 
 
@@ -1186,10 +1225,17 @@ unsigned long ContecCpsSsiCommandInp( short Id, unsigned long addr, unsigned cha
 unsigned long ContecCpsSsiCommandOutp( short Id, unsigned long addr, unsigned char value )
 {
 	struct cpsssi_direct_command_arg arg;
+	unsigned long ulRet = SSI_ERR_SUCCESS;
+	int iRet = 0;
+
+	memset(&arg, 0, sizeof(struct cpsssi_direct_command_arg));
 
 	arg.addr = addr;
 	arg.val = (unsigned long)value;
-	ioctl( Id, IOCTL_CPSSSI_DIRECT_COMMAND_OUTPUT, arg );
+	iRet = ioctl( Id, IOCTL_CPSSSI_DIRECT_COMMAND_OUTPUT, arg );
 
-	return 	SSI_ERR_SUCCESS;
+	if( iRet < 0 )
+		ulRet = SSI_ERR_DLL_CALL_DRIVER;
+
+	return ulRet;
 }

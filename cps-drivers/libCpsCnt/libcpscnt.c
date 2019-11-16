@@ -33,8 +33,11 @@
  #include "libcpscnt.h"
 #endif
 
-#define CONTEC_CPSCNT_LIB_VERSION	"1.0.3"
-
+#ifdef CONPROSYS_MAKEFILE_VERSION
+	#define CONTEC_CPSCNT_LIB_VERSION CONPROSYS_MAKEFILE_VERSION
+#else
+	#define CONTEC_CPSCNT_LIB_VERSION	"1.0.4"
+#endif
 
 
 typedef struct __contec_cps_cnt_int_callback__
@@ -92,13 +95,26 @@ unsigned long ContecCpsCntInit( char *DeviceName, short *Id )
 {
 	// open
 	char Name[32];
+	int fd = 0;
+
+	// NULL Pointer Checks
+	if( DeviceName == ( char * )NULL )
+		return CNT_ERR_PTR_DEVICE_NAME;
+	if( Id == ( short * )NULL )
+		return CNT_ERR_DLL_INVALID_ID;	
+
+	if( (strlen(DeviceName) + 5)  > 32 )
+		return CNT_ERR_DLL_CREATE_FILE;
 
 	strcpy(Name, "/dev/");
 	strcat(Name, DeviceName);
 
-	*Id = open( Name, O_RDWR );
+	fd = open( Name, O_RDWR );
 
-	if( *Id <= 0 ) return CNT_ERR_DLL_CREATE_FILE;
+	if( fd < 0 )
+		return CNT_ERR_DLL_CREATE_FILE;
+
+	*Id = fd;
 
 	return CNT_ERR_SUCCESS;
 
@@ -162,25 +178,29 @@ unsigned long ContecCpsCntQueryDeviceName( short Index, char *DeviceName, char *
 	char tmpDevName[16];
 	char baseDeviceName[16]="cpscnt";
 	char strNum[2]={0};
-	int findNum=0, cnt, ret;
-
+	int findNum=0, cnt;
+	unsigned long ulRet = CNT_ERR_SUCCESS;
 	short tmpId = 0;
+	int iRet = 0;
 
 	for(cnt = 0;cnt < CPS_DEVICE_MAX_NUM ; cnt ++ ){
 		sprintf(tmpDevName,"%s%x",baseDeviceName, cnt);
-		ret = ContecCpsCntInit(tmpDevName, &tmpId);
+		ulRet = ContecCpsCntInit(tmpDevName, &tmpId);
 
-		if( ret == 0 ){
+		if( ulRet == CNT_ERR_SUCCESS ){
 			ioctl(tmpId, IOCTL_CPSCNT_GET_DEVICE_NAME, &arg);
 			ContecCpsCntExit(tmpId);
 
-			if(findNum == Index){
-				sprintf(DeviceName,"%s",tmpDevName);
-				sprintf(Device,"%s", arg.str);
-				return CNT_ERR_SUCCESS;
-			}else{
-				findNum ++;
+			if( iRet >= 0 ){
+				if(findNum == Index){
+					sprintf(DeviceName,"%s",tmpDevName);
+					sprintf(Device,"%s", arg.str);
+					return CNT_ERR_SUCCESS;
+				}else{
+					findNum ++;
+				}
 			}
+
 			memset(&tmpDevName,0x00, 16);
 			memset(&arg.str, 0x00, sizeof(arg.str)/sizeof(arg.str[0]));
 
@@ -342,7 +362,7 @@ unsigned long ContecCpsCntSetCountDirection( short Id, short ChNo, short Dir )
 unsigned long ContecCpsCntSetOperationMode( short Id, short ChNo, short Phase, short Mul, short SyncDir )
 {
 	struct cpscnt_ioctl_arg	arg;
-	unsigned char valb;
+	unsigned char valb = 0;
 
 	switch ( Phase ){
 	case CNT_MODE_GATECONTROL:

@@ -8,13 +8,46 @@ os:
 
 dist:
   - trusty
+#  - xenial
 
 compiler:
   - gcc
 
+env:
+  global:
+    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+    #   via the "travis encrypt" command using the project repo's public key
+    # ** specific to your project **   
+    - secure: "W6FXOZKx+b6lGyBlAk8Dc8NR/BChmQLW+qKk2dKLSy5hYakOv0Ym9EHN55PVHo7oB30HLvMKy0CnGU5Ojt74YeaolFL0OGuevhg3JXbBiqkllQ6JDdflYB0+A7fcMzxqn2bNKCtkGaQnZ1sBMeS7rkqDS6wwRr4OYg5VA0UCqIMY+V42vzgTUTefctmkGj1/ArPlvZZJxOcOnhvaAjq71CXR/rFnQDKVt94vwwe6jdnJSnIdvdNuWtRXTTSPHnXgJYy6oOnHyMVb6Ygezhhj4NrKjLNan4DeRBNZVvi0heVjSFRpL5gmCU6w/z7C9Tf2+7o75Usq9h0zpx0BCwhSUm/UId0L4lFk8jdVMYSiUl59VfDjvc+1DUn8eXuRth5jDmnNX+9k3WRYSFQ1qL9rezakhXFLcpy9VLWR2O8ByNznm+lFPuRBa+k4B4pW6Y2OqAj5LmoLXDKq0A+pyA4pjuGFFyuJUhjHQoPCciiSOH0UzxXydp2HUxkHeaZ5weTo995+14teY99B9RdoD3q70hyMJ4B1EFYbwnWQ6KMcdTWmDOJTW9xcrcbjUB/N/bo5b2eOCVXAeoaVGE2b7wgXVpZCjTJ3aEXFq4HuuNECW1vbN+DZW+t3UtvYbHT9dz6p7XjteYp4Q5mQM8Qr/vNrGibM7lHOsPBy2dgfTOznv94="
+addons:
+  coverity_scan:
+    # GitHub project metadata
+    # ** specific to your project **
+    project:
+      name: "CONPROSYS/LINUX-SDK_library"
+      version: "1.4.1.0"
+      description: "lib"
+
+    # Where email notification of build analysis results will be sent
+    notification_email: okamoto@contec.jp
+
+    # Commands to prepare for build_command
+    # ** likely specific to your build **
+    build_command_prepend: "cov-configure --compiler arm-linux-gnueabi-gcc --comptype gcc --template"
+
+    # The command that will be added as an argument to "cov-build" to compile your project for analysis,
+    # ** likely specific to your build **
+    build_command: "make"
+
+    # Pattern to match selecting branches that will run analysis. We recommend leaving this set to 'coverity_scan'.
+    # Take care in resource usage, and consider the build frequency allowances per
+    #   https://scan.coverity.com/faq#frequency
+    branch_pattern: "*"
+
 before_install:
   # apt-get install
-  - sudo apt-get install -y gcc-4.7-arm-linux-gnueabi libncurses5-dev binutils-arm-linux-gnueabi 
+  - sudo apt-get update
+  - sudo apt-get install -y gcc-4.7-arm-linux-gnueabi libncurses5-dev binutils-arm-linux-gnueabi ssl-cert ca-certificates
   - export CROSS_COMPILE=arm-linux-gnueabi-
   - export ARCH=arm
   - sudo ln -s /usr/bin/arm-linux-gnueabi-gcc-4.7 /usr/bin/arm-linux-gnueabi-gcc
@@ -34,10 +67,11 @@ before_install:
 
   - cd $TRAVIS_BUILD_DIR/
 
-before_script:
- 
+  # install to use coverity scan
+  - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
+
+
 script:
   - make
   - sudo make install
   - sudo ldconfig
-after_script:

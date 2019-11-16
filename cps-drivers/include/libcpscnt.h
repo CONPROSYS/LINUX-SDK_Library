@@ -16,6 +16,10 @@
 #define CNT_ERR_DLL_CREATE_FILE		10003
 #define CNT_ERR_DLL_CLOSE_FILE		10004
 #define CNT_ERR_DLL_CREATE_THREAD	10005
+#define	CNT_ERR_PTR_DEVICE_NAME					10007		///< DeviceNameのポインタがNULLです
+#define	CNT_ERR_PTR_DEVICE						10008		///< DeviceのポインタがNULLです
+#define	CNT_ERR_UNKNOWN_DEVICE					10013		///< デバイスの種類を判別できません
+#define	CNT_ERR_PTR_DEVICE_TYPE					10015		///< DeviceTypeのポインタがNULLです
 
 #define CNT_ERR_INFO_INVALID_DEVICE	10050
 #define CNT_ERR_INFO_NOT_FIND_DEVICE	10051
