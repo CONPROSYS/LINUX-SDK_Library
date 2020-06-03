@@ -36,7 +36,7 @@
 #ifdef CONPROSYS_MAKEFILE_VERSION
 	#define CONTEC_CPSDIO_LIB_VERSION CONPROSYS_MAKEFILE_VERSION
 #else
-	#define CONTEC_CPSDIO_LIB_VERSION	"1.0.7"
+	#define CONTEC_CPSDIO_LIB_VERSION	"1.0.8"
 #endif
 
 
@@ -249,14 +249,23 @@ unsigned long ContecCpsDioGetMaxPort( short Id, short *InPortNum, short *OutPort
 {
 
 	struct cpsdio_ioctl_arg	arg;
+	int iRet = 0;
 
-	ioctl( Id, IOCTL_CPSDIO_GET_INP_PORTNUM, &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_GET_INP_PORTNUM, &arg );
 
-	*InPortNum = (short)( arg.val );
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
-	ioctl( Id, IOCTL_CPSDIO_GET_OUTP_PORTNUM, &arg );
+	if( InPortNum != (short* ) NULL )
+		*InPortNum = (short)( arg.val );
 
-	*OutPortNum = (short)( arg.val );
+	iRet = ioctl( Id, IOCTL_CPSDIO_GET_OUTP_PORTNUM, &arg );
+	
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
+	
+	if( OutPortNum != (short *) NULL )
+		*OutPortNum = (short)( arg.val );
 
 	return DIO_ERR_SUCCESS;
 }
@@ -281,19 +290,21 @@ unsigned long ContecCpsDioGetVersion( short Id , unsigned char libVer[] , unsign
 
 	struct cpsdio_ioctl_string_arg	arg;
 	int len;
+	int iRet = 0;
 
+	iRet = ioctl( Id, IOCTL_CPSDIO_GET_DRIVER_VERSION, &arg );
 
-	ioctl( Id, IOCTL_CPSDIO_GET_DRIVER_VERSION, &arg );
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	len = sizeof( arg.str ) / sizeof( arg.str[0] );
 	memcpy(drvVer, arg.str, len);
-//	strcpy_s(drvVer, arg.str);
+// strcpy_s(drvVer, arg.str);
 
 	len = sizeof( CONTEC_CPSDIO_LIB_VERSION ) /sizeof( unsigned char );
 	memcpy(libVer, CONTEC_CPSDIO_LIB_VERSION, len);
 
 	return DIO_ERR_SUCCESS;
-
 }
 
 
@@ -315,10 +326,14 @@ unsigned long ContecCpsDioGetVersion( short Id , unsigned char libVer[] , unsign
 unsigned long ContecCpsDioInpByte( short Id, short Num, unsigned char *Data)
 {
 	struct cpsdio_ioctl_arg	arg;
+	int iRet = 0;
 
 	arg.port = Num;
 
-	ioctl( Id, IOCTL_CPSDIO_INP_PORT, &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_INP_PORT, &arg );
+
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	*Data = ( arg.val );
 
@@ -343,10 +358,14 @@ unsigned long ContecCpsDioInpBit( short Id, short Num, unsigned char *Data )
 {
 
 	struct cpsdio_ioctl_arg	arg;
+	int iRet = 0;
 
 	arg.port = Num / 8;
 
-	ioctl( Id, IOCTL_CPSDIO_INP_PORT, &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_INP_PORT, &arg );
+
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 //////////////////////////////// Ver.1.0.3
 	*Data = ( arg.val  & (1 << (Num % 8) ) ) >> (Num % 8);
@@ -372,13 +391,16 @@ unsigned long ContecCpsDioInpBit( short Id, short Num, unsigned char *Data )
 unsigned long ContecCpsDioOutByte( short Id, short Num, unsigned char Data)
 {
 
-
 	struct cpsdio_ioctl_arg	arg;
+	int iRet = 0;
 
 	arg.port = Num;
 	arg.val = Data;
 
-	ioctl( Id, IOCTL_CPSDIO_OUT_PORT , &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_OUT_PORT , &arg );
+
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	return DIO_ERR_SUCCESS;
 }
@@ -401,17 +423,24 @@ unsigned long ContecCpsDioOutBit( short Id, short Num, unsigned char Data )
 {
 
 	struct cpsdio_ioctl_arg	arg;
+	int iRet = 0;
 
-	ioctl( Id, IOCTL_CPSDIO_INP_PORT , &arg );	
 	arg.port = Num / 8;
+	iRet = ioctl( Id, IOCTL_CPSDIO_INP_PORT , &arg );	
+
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 //////////////////////////////// Ver.1.0.3
 	arg.val = arg.val & (  ~(1 << (Num % 8) ) ) | ( Data << (Num % 8 ) );
 //////////////////////////////// Ver.1.0.3
 
-	ioctl( Id, IOCTL_CPSDIO_OUT_PORT , &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_OUT_PORT , &arg );
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
-	return DIO_ERR_SUCCESS;
+
+	return  DIO_ERR_SUCCESS;
 }
 
 /**
@@ -431,15 +460,18 @@ unsigned long ContecCpsDioOutBit( short Id, short Num, unsigned char Data )
 unsigned long ContecCpsDioEchoBackByte( short Id, short Num, unsigned char *Data)
 {
 	struct cpsdio_ioctl_arg	arg;
-
+	int iRet = 0;
+	
 	arg.port = Num;
 
-	ioctl( Id, IOCTL_CPSDIO_OUT_PORT_ECHO , &arg );	
+	iRet = ioctl( Id, IOCTL_CPSDIO_OUT_PORT_ECHO , &arg );	
+	
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 		
 	*Data = arg.val;
 
-
-	return DIO_ERR_SUCCESS;
+	return  DIO_ERR_SUCCESS;
 }
 
 /**
@@ -460,16 +492,20 @@ unsigned long ContecCpsDioEchoBackBit( short Id, short Num, unsigned char *Data)
 {
 
 	struct cpsdio_ioctl_arg	arg;
-
+	int iRet = 0;
+	
 	arg.port = Num / 8;
 		
-	ioctl( Id, IOCTL_CPSDIO_OUT_PORT_ECHO, &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_OUT_PORT_ECHO, &arg );
+
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 //////////////////////////////// Ver.1.0.3
 	*Data = ( arg.val  & (1 << (Num % 8) ) ) >> (Num % 8);
 //////////////////////////////// Ver.1.0.3
 
-	return DIO_ERR_SUCCESS;
+	return  DIO_ERR_SUCCESS;
 }
 
 // Multi Functions -----
@@ -492,13 +528,15 @@ unsigned long ContecCpsDioEchoBackBit( short Id, short Num, unsigned char *Data)
 unsigned long ContecCpsDioInpMultiByte( short Id, short Ports[], short PortsDimensionNum, unsigned char Data[] )
 {
 	short count;
+	unsigned long ulRet = DIO_ERR_SUCCESS;	
 
 	for( count = 0; count < PortsDimensionNum; count ++ )
 	{		
-		ContecCpsDioInpByte( Id, Ports[count], &Data[count] );
+		ulRet = ContecCpsDioInpByte( Id, Ports[count], &Data[count] );
+		if ( ulRet != DIO_ERR_SUCCESS ) break;
 	}
 
-	return DIO_ERR_SUCCESS;
+	return ulRet;
 }
 /**
 	@~English
@@ -520,13 +558,15 @@ unsigned long ContecCpsDioInpMultiBit( short Id, short Bits[],short BitsDimensio
 {
 
 	short count;
+	unsigned long ulRet = DIO_ERR_SUCCESS;	
 
 	for( count = 0; count < BitsDimensionNum; count ++ )
 	{		
-		ContecCpsDioInpBit( Id, Bits[count], &Data[count] );
+		ulRet = ContecCpsDioInpBit( Id, Bits[count], &Data[count] );
+		if ( ulRet != DIO_ERR_SUCCESS ) break;
 	}
 
-	return DIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -548,12 +588,14 @@ unsigned long ContecCpsDioInpMultiBit( short Id, short Bits[],short BitsDimensio
 unsigned long ContecCpsDioOutMultiByte( short Id, short Ports[], short PortsDimensionNum, unsigned char Data[] )
 {
 	short count;
+	unsigned long ulRet = DIO_ERR_SUCCESS;	
 
 	for( count = 0; count < PortsDimensionNum; count ++ )
 	{		
-		ContecCpsDioOutByte( Id, Ports[count], Data[count] );
+		ulRet = ContecCpsDioOutByte( Id, Ports[count], Data[count] );
+		if ( ulRet != DIO_ERR_SUCCESS ) break;
 	}
-	return DIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -575,12 +617,14 @@ unsigned long ContecCpsDioOutMultiByte( short Id, short Ports[], short PortsDime
 unsigned long ContecCpsDioOutMultiBit( short Id, short Bits[],short BitsDimensionNum, char Data[])
 {
 	short count;
+	unsigned long ulRet = DIO_ERR_SUCCESS;	
 
 	for( count = 0; count < BitsDimensionNum; count ++ )
 	{		
-		ContecCpsDioOutBit( Id, Bits[count], Data[count] );
+		ulRet = ContecCpsDioOutBit( Id, Bits[count], Data[count] );
+		if ( ulRet != DIO_ERR_SUCCESS ) break;
 	}
-	return DIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -602,12 +646,14 @@ unsigned long ContecCpsDioOutMultiBit( short Id, short Bits[],short BitsDimensio
 unsigned long ContecCpsDioEchoBackMultiByte( short Id, short Ports[], short PortsDimensionNum, unsigned char Data[] )
 {
 	short count;
+	unsigned long ulRet = DIO_ERR_SUCCESS;	
 
 	for( count = 0; count < PortsDimensionNum; count ++ )
 	{		
-		ContecCpsDioEchoBackByte( Id, Ports[count], &Data[count] );
+		ulRet = ContecCpsDioEchoBackByte( Id, Ports[count], &Data[count] );
+		if ( ulRet != DIO_ERR_SUCCESS ) break;
 	}
-	return DIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 /**
@@ -629,13 +675,15 @@ unsigned long ContecCpsDioEchoBackMultiByte( short Id, short Ports[], short Port
 unsigned long ContecCpsDioEchoBackMultiBit( short Id, short Bits[],short BitsDimensionNum, char Data[])
 {
 	short count;
+	unsigned long ulRet = DIO_ERR_SUCCESS;	
 
 	for( count = 0; count < BitsDimensionNum; count ++ )
 	{		
-		ContecCpsDioEchoBackBit( Id, Bits[count], &Data[count] );
+		ulRet = ContecCpsDioEchoBackBit( Id, Bits[count], &Data[count] );
+		if ( ulRet != DIO_ERR_SUCCESS ) break;
 	}
 
-	return DIO_ERR_SUCCESS;
+	return ulRet;
 }
 
 
@@ -655,10 +703,14 @@ unsigned long ContecCpsDioEchoBackMultiBit( short Id, short Bits[],short BitsDim
 unsigned long ContecCpsDioSetDigitalFilter( short Id, unsigned char FilterValue )
 {
 	struct cpsdio_ioctl_arg	arg;
-	
+	int iRet = 0;
+		
 	arg.val = (FilterValue & 0x3F);
 
-	ioctl( Id, IOCTL_CPSDIO_SET_FILTER	 , &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_SET_FILTER	 , &arg );
+
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	return DIO_ERR_SUCCESS;
 }
@@ -678,8 +730,12 @@ unsigned long ContecCpsDioSetDigitalFilter( short Id, unsigned char FilterValue 
 unsigned long ContecCpsDioGetDigitalFilter( short Id, unsigned char *FilterValue )
 {
 	struct cpsdio_ioctl_arg	arg;
+	int iRet = 0;
+	
+	iRet = ioctl( Id, IOCTL_CPSDIO_GET_FILTER, &arg );
 
-	ioctl( Id, IOCTL_CPSDIO_GET_FILTER, &arg );
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	*FilterValue = ( arg.val );
 
@@ -706,10 +762,14 @@ unsigned long ContecCpsDioGetDigitalFilter( short Id, unsigned char *FilterValue
 unsigned long ContecCpsDioSetInternalPowerSupply( short Id, unsigned char isInternal )
 {
 	struct cpsdio_ioctl_arg	arg;
-
+	int iRet = 0;
+	
 	arg.val = (isInternal & 0x01);
 
-	ioctl( Id, IOCTL_CPSDIO_SET_INTERNAL_POW	 , &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_SET_INTERNAL_POW	 , &arg );
+
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	return DIO_ERR_SUCCESS;
 }
@@ -729,8 +789,12 @@ unsigned long ContecCpsDioSetInternalPowerSupply( short Id, unsigned char isInte
 unsigned long ContecCpsDioGetInternalPowerSupply( short Id, unsigned char *isInternal )
 {
 	struct cpsdio_ioctl_arg	arg;
+	int iRet = 0;
+	
+	iRet = ioctl( Id, IOCTL_CPSDIO_GET_INTERNAL_POW, &arg );
 
-	ioctl( Id, IOCTL_CPSDIO_GET_INTERNAL_POW, &arg );
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	*isInternal = ( arg.val );
 
@@ -756,23 +820,32 @@ unsigned long ContecCpsDioGetInternalPowerSupply( short Id, unsigned char *isInt
 unsigned long ContecCpsDioNotifyInterrupt( short Id, short BitNum, short Logic )
 {
 	struct cpsdio_ioctl_arg	arg;
-
+	int iRet = 0;
+	
 	/**** Mask Set ****/
 	arg.val = ~(1 << BitNum);
 
-	ioctl( Id, IOCTL_CPSDIO_SET_INT_MASK, &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_SET_INT_MASK, &arg );
+
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	/**** Egde Set ****/
 	arg.val = (Logic << BitNum);
 
-	ioctl( Id, IOCTL_CPSDIO_SET_INT_EGDE, &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_SET_INT_EGDE, &arg );
+
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	/****  process_id Set ****/
 
 	arg.val = getpid();
 
-	ioctl( Id, IOCTL_CPSDIO_SET_CALLBACK_PROCESS, &arg );
+	iRet = ioctl( Id, IOCTL_CPSDIO_SET_CALLBACK_PROCESS, &arg );
 
+	if( iRet < 0 )
+		return DIO_ERR_DLL_CALL_DRIVER;
 
 	DEBUG_LIB_CPSDIO_INTERRUPT_CHECK("------ signal: SIGUSR2\n");
 	/*** signal ***/

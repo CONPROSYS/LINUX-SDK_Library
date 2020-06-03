@@ -1,7 +1,7 @@
 # Library Modules for CONPROSYS [![Build Status](https://travis-ci.org/CONPROSYS/LINUX-SDK_library.svg?branch=master)](https://travis-ci.org/CONPROSYS/LINUX-SDK_library) [![Coverity Scan Build Status](https://img.shields.io/coverity/scan/17302.svg)](https://scan.coverity.com/projects/conprosys-linux-sdk_library)
 
 ## Features
-* Version : 1.5.0.0 (2019/10/24)
+* Version : 1.5.1.0 (2020/06/02)
 
 ## Licenses
 
@@ -69,7 +69,7 @@
     * libCpsAio (Analog Input/Output)
         * Version 1.2.3
     * libCpsDio (Digital Input/Output)
-        * Version 1.0.7
+        * Version 1.0.8
     * libCpsCnt (Counter)
         * Version 1.0.4
     * libCpsSsi (Sensor Input)
@@ -88,6 +88,9 @@
         * Version 0.1.2
 
 ## Change log
+* Ver 1.5.1.0
+    * libCpsDio 1.0.7 -> 1.0.8
+        Fixed, the kernel panic is occured to use the ContecCpsDioOutBit function. 
 * Ver 1.5.0.0
     * libCpsAio 1.2.2 -> 1.2.3
         * Fixed, after the application is setting the sampling clock 10 micro second, the ContecCpsAioMultiAi function is occured the samplingclock Error flag.
